@@ -1,26 +1,134 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ------------------------------------------------------------------ */
+/*  RedCode design tokens — dark theme with red accents               */
+/* ------------------------------------------------------------------ */
+@theme {
+  --color-background: #050505;
+  --color-surface: #0b0b0d;
+  --color-surface-2: #111114;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-foreground: #f4f4f5;
+  --color-muted: #a1a1aa;
+  --color-muted-2: #71717a;
+
+  /* Brand red scale */
+  --color-brand-50: #fff1f1;
+  --color-brand-100: #ffdfdf;
+  --color-brand-200: #ffc5c5;
+  --color-brand-300: #ff9d9d;
+  --color-brand-400: #ff6363;
+  --color-brand-500: #f01e2c;
+  --color-brand-600: #d20e1c;
+  --color-brand-700: #b00c17;
+  --color-brand-800: #911018;
+  --color-brand-900: #78141a;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --radius: 0.75rem;
+
+  --shadow-glow: 0 0 60px -15px rgba(240, 30, 44, 0.45);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* ------------------------------------------------------------------ */
+/*  Base                                                              */
+/* ------------------------------------------------------------------ */
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--color-brand-500);
+    color: #fff;
+  }
+
+  /* Themed scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-background);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #26262b;
+    border-radius: 999px;
+    border: 2px solid var(--color-background);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-brand-700);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ------------------------------------------------------------------ */
+/*  Reusable visual utilities                                         */
+/* ------------------------------------------------------------------ */
+@utility container-page {
+  width: 100%;
+  max-width: 80rem; /* 1280px */
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+}
+
+/* Gradient text used for accented words */
+@utility text-gradient-brand {
+  background-image: linear-gradient(120deg, #ff6363 0%, #f01e2c 50%, #b00c17 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Faint grid backdrop */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+/* Radial red glow used behind hero / section highlights */
+.bg-radial-brand {
+  background: radial-gradient(
+    60% 60% at 70% 30%,
+    rgba(240, 30, 44, 0.22) 0%,
+    rgba(240, 30, 44, 0.06) 40%,
+    transparent 70%
+  );
+}
+
+/* Subtle top-to-bottom fade mask for grids */
+.mask-fade-b {
+  -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+}
+
+/* Surface card base */
+.card-surface {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+    var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 32s linear infinite;
 }
