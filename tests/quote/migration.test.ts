@@ -12,8 +12,11 @@ import {
 } from "@/lib/quote/options";
 
 // Static checks on the SQL. The live check against Supabase DEV is in tests/dev.
+// The admin panel migration (tests/admin/migration.test.ts) later grants admins
+// read access through RLS policies; these checks pin the initial migration.
 const dir = join(process.cwd(), "supabase", "migrations");
-const sql = readdirSync(dir)
+const sql = readFileSync(join(dir, "20261014120000_quote_requests.sql"), "utf8").toLowerCase();
+const allSql = readdirSync(dir)
   .filter((f) => f.endsWith(".sql"))
   .map((f) => readFileSync(join(dir, f), "utf8"))
   .join("\n")
@@ -66,8 +69,8 @@ describe("quote_requests migration", () => {
     expect(sql).toContain("check (consent_accepted)");
   });
 
-  it("has no columns for attachments or secrets", () => {
-    const columns = [...sql.matchAll(/^\s+([a-z_]+)\s+(?:text|bytea|jsonb|uuid|integer|boolean|date|timestamptz)\b/gm)].map(
+  it("has no columns for attachments or secrets in any migration", () => {
+    const columns = [...allSql.matchAll(/^\s+([a-z_]+)\s+(?:text|bytea|jsonb|uuid|integer|boolean|date|timestamptz)\b/gm)].map(
       (m) => m[1]
     );
     expect(columns).toContain("email");

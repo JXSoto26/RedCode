@@ -133,6 +133,22 @@
   border: 1px solid var(--color-border);
 }
 
+/* Printable quote preview (/admin/solicitudes/[id]/cotizacion) */
+@media print {
+  @page {
+    margin: 16mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #18181b !important;
+  }
+  .quote-sheet {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
 @keyframes marquee {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }

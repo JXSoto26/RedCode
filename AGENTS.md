@@ -22,13 +22,22 @@ El flujo completo está en el README (secciones "Supabase DEV", "Pruebas", "Ento
   2. Ejecuta `npm run db:target`.
   3. Ejecuta `npm run db:push:dry` y confirma que solo aparecen las migraciones esperadas.
   4. Ejecuta `npm run db:push`.
-  5. Ejecuta `npm run db:status` y `npm run test:dev`.
+  5. Ejecuta `npm run db:status`, `npm run test:dev` y `npm run test:db`.
 - **Requieren autorización específica del usuario:**
   - Cambios destructivos: `drop`, `truncate`, `delete` de datos, cambios de tipo con pérdida, retirar RLS o ampliar permisos a `anon` o `authenticated`.
   - `migration repair`. Solo después de comparar el esquema real con el archivo.
   - Cualquier operación contra producción.
 - No edites migraciones ya aplicadas; crea una nueva con `npm run db:new -- <nombre>`.
 - No uses Docker: no funciona en este equipo. No uses `db diff`, `db dump`, `db pull`, `db reset` ni `supabase start`. Para inspeccionar el esquema usa `npx supabase db query --linked` con consultas de solo lectura al catálogo.
+
+## Panel privado (`/admin`)
+- Cada página, lectura y Server Action del panel llama a `requireAdmin()` (`lib/admin/auth.ts`) por su cuenta. No dependas de `proxy.ts`, del layout ni de ocultar componentes para proteger datos.
+- El panel usa la clave pública con la sesión del usuario (RLS). Nunca uses `SUPABASE_SECRET_KEY` ni `createSupabaseAdminClient` en `lib/admin/` o `app/admin/`.
+- Las escrituras del panel van solo por las funciones `admin_*` de la base. No concedas `insert`, `update` ni `delete` sobre las tablas del panel a `authenticated` ni a `service_role`.
+- Nunca añadas administradores, cambies `admin_users` ni crees usuarios reales sin que el usuario lo pida. Los usuarios temporales de las pruebas se crean sin enviar emails y se borran al terminar.
+- El código público (`app/api`, `app/cotizar`, `components/quote`, `lib/quote`, `scripts`) no puede referenciar notas, borradores, historial ni `lib/admin`. `tests/admin/privacy.test.ts` lo comprueba.
+- No añadas eliminación de solicitudes, envío de propuestas, enlaces públicos, pagos ni IA sin que se pida.
+- Los importes se manejan en centavos enteros con `lib/admin/money.ts`. Nunca uses coma flotante para dinero.
 
 ## Pruebas
 - `npm test` no usa red. `npm run test:dev` usa Supabase DEV y no envía emails.
