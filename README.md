@@ -22,7 +22,7 @@ Hay contenido que se muestra solo cuando sus datos están configurados, para que
 
 | Dato | Archivo | Qué activa |
 | --- | --- | --- |
-| `contact.email`, `contact.whatsapp` | `lib/site.ts` | Sección de contacto y enlace "Contacto" |
+| `contact.email`, `contact.whatsapp` | `lib/site.ts` | Sección de contacto, enlace "Contacto" y datos de contacto del PDF de cotización. Email configurado: `redcodepr@gmail.com`; WhatsApp pendiente |
 | `socials` | `lib/site.ts` | Enlaces a redes en el footer |
 | `url` (dominio) | `lib/site.ts` | `metadataBase`, URL canónica, Open Graph, sitemap y referencia al sitemap en `robots.txt` |
 | `PROJECTS` | `lib/projects.ts` | Sección de portafolio y su enlace en la navegación |
@@ -171,7 +171,7 @@ La migración inicial crea `quote_requests` y `quote_rate_limits` con RLS activa
    - El PDF exacto que se adjuntará, con su hash.
 2. Marca la casilla y pulsa **"Confirmar envío"**. Nada se envía al finalizar, al abrir pantallas ni al guardar borradores.
 3. **Lista de autorizados:** se respetan `QUOTE_EMAIL_DELIVERY` y `QUOTE_EMAIL_ALLOWLIST`. Si el destinatario no está autorizado (DEV y Preview), el envío se bloquea con un mensaje y no se registra nada.
-4. Se usa Resend desde el servidor, con el PDF adjunto y la clave de idempotencia `quote-send/<id del envío>`.
+4. Se usa Resend desde el servidor, con el PDF adjunto y la clave de idempotencia `quote-send/<id del envío>`. El remitente es `QUOTE_EMAIL_FROM` y el Reply-To es `QUOTE_EMAIL_REPLY_TO`, si está configurado. Ambos se guardan con el envío, para que cualquier reintento sea idéntico.
 
 **Registro de envíos** (`quote_sends`):
 
@@ -197,13 +197,16 @@ La migración inicial crea `quote_requests` y `quote_rate_limits` con RLS activa
 **Reconciliar un resultado incierto (o un envío "sin respuesta registrada"):**
 
 - **Nunca** reenvíes por tu cuenta. Podría llegar dos veces.
-- **Menos de 23 h desde el envío:** pulsa **"Comprobar con Resend"**. Repite exactamente la misma petición (mismo asunto, mensaje, PDF y clave de idempotencia):
+- **"Repetir envío con la misma clave" no es una consulta de entrega.** No pregunta a Resend qué pasó: vuelve a hacer la **petición de envío**, idéntica, con la misma clave de idempotencia. La deduplicación la hace Resend gracias a esa clave.
+  - Se repite todo lo guardado en el envío original: destinatario, remitente, Reply-To, asunto, mensaje y el PDF exacto (comprobado por su hash). Nada se toma de la configuración actual, así que un cambio en las variables de entorno no altera el reintento.
+  - Solo está disponible durante 23 horas desde el envío original (Resend guarda las claves 24 h). Pasado ese plazo, la base la bloquea y la pantalla ya no la ofrece.
+- **Menos de 23 h desde el envío:** pulsa **"Repetir envío con la misma clave"**:
   - Si Resend ya la había aceptado, devuelve el mismo ID y no envía otro email.
   - Si no la había recibido, la envía una sola vez.
 - **Más de 23 h** (Resend guarda las claves 24 h): búscalo en el panel de Resend, en **Emails**, y regístralo a mano:
   - "Aparece en Resend", con el ID del email.
   - "No aparece: no se envió". Así queda como fallido y se puede enviar de nuevo.
-- Si Resend aceptó el email pero la base no pudo registrarlo, el envío queda "en proceso". Pasados 2 minutos aparece como "sin respuesta registrada" y se resuelve igual: "Comprobar con Resend" no lo duplica.
+- Si Resend aceptó el email pero la base no pudo registrarlo, el envío queda "en proceso". Pasados 2 minutos aparece como "sin respuesta registrada" y se resuelve igual: "Repetir envío con la misma clave" no lo duplica.
 
 ### Email (Resend)
 
@@ -274,4 +277,5 @@ Orden recomendado antes de subir cambios: `npm run lint`, `npm run typecheck`, `
 - Política de privacidad. El formulario pide autorización para usar los datos (`CONSENT_TEXT` y `CONSENT_VERSION` en `lib/quote/options.ts`; si cambias el texto, cambia también la versión), pero no enlaza a ninguna política porque todavía no existe.
 - Proyecto Supabase PROD independiente, con las migraciones aplicadas, registro público desactivado, su propio administrador y sus variables solo en el entorno Production de Vercel.
 - Dominio verificado en Resend y `QUOTE_EMAIL_DELIVERY=all` en producción. Hasta entonces, las cotizaciones solo pueden enviarse a direcciones de la lista autorizada.
-- Datos comerciales para el PDF: si quieres que aparezcan email o WhatsApp de contacto, configúralos en `lib/site.ts`. El PDF solo muestra los datos confirmados.
+- WhatsApp de contacto: pendiente. Cuando se configure en `lib/site.ts`, aparecerá en el sitio y en el PDF. El PDF solo muestra datos confirmados.
+- `QUOTE_EMAIL_REPLY_TO` de Production: está configurado en local y en Preview (`redcodepr@gmail.com`), pero no en Production.

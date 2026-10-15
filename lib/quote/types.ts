@@ -49,6 +49,8 @@ export type EmailMessage = {
   replyTo?: string;
   /** Provider-side idempotency key so retries never send twice. */
   idempotencyKey: string;
+  /** Overrides the mailer's default sender (used to repeat a send exactly). */
+  from?: string;
   /** Files attached as base64 content. */
   attachments?: { filename: string; content: string }[];
 };
@@ -62,6 +64,8 @@ export interface Mailer {
 
 export type EmailSettings = {
   mailer: Mailer;
+  /** Configured sender (QUOTE_EMAIL_FROM). */
+  from: string;
   ownerEmail: string;
   replyTo: string | null;
   /** Lowercased addresses allowed to receive email; null means any address. */

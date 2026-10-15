@@ -25,6 +25,9 @@ export type QuoteSend = {
   body: string;
   pdfPath: string;
   pdfSha256: string;
+  /** Sender and Reply-To used (null on sends recorded before they were stored). */
+  sender: string | null;
+  replyTo: string | null;
   status: SendStatus;
   attempts: number;
   providerId: string | null;
@@ -55,7 +58,7 @@ const QUOTE_COLUMNS =
   "id, quote_request_id, quote_reference, revision, draft_version, business_name, contact_name, recipient_email, title, summary, deliverables, exclusions, estimated_time, terms, validity, currency, total_cents, issued_by_email, issued_at, pdf_path, pdf_sha256, pdf_size_bytes, pdf_generated_at, quote_items(position, description, quantity::text, unit_price_cents, line_total_cents), quote_requests(reference, status)";
 
 const SEND_COLUMNS =
-  "id, kind, recipient_email, subject, body, pdf_path, pdf_sha256, status, attempts, provider_id, last_error, status_effect, resolved_manually, requested_by_email, created_at, last_attempt_at, accepted_at";
+  "id, kind, recipient_email, subject, body, pdf_path, pdf_sha256, sender, reply_to, status, attempts, provider_id, last_error, status_effect, resolved_manually, requested_by_email, created_at, last_attempt_at, accepted_at";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- rows from the untyped client */
 function toSend(s: any): QuoteSend {
@@ -67,6 +70,8 @@ function toSend(s: any): QuoteSend {
     body: s.body,
     pdfPath: s.pdf_path,
     pdfSha256: s.pdf_sha256,
+    sender: s.sender ?? null,
+    replyTo: s.reply_to ?? null,
     status: s.status,
     attempts: s.attempts,
     providerId: s.provider_id,

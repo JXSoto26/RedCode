@@ -40,6 +40,7 @@ export function getEmailSettings(options: { timeoutMs?: number } = {}): EmailSet
   const deliverToAll = env("QUOTE_EMAIL_DELIVERY") === "all";
   return {
     mailer: createResendMailer(apiKey, from, fetch, options.timeoutMs),
+    from,
     ownerEmail,
     replyTo: env("QUOTE_EMAIL_REPLY_TO"),
     allowlist: deliverToAll ? null : parseList(env("QUOTE_EMAIL_ALLOWLIST")),

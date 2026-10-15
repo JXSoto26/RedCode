@@ -15,8 +15,8 @@ export const site = {
   url: null as string | null,
 
   contact: {
-    /** Public email address. Pending confirmation. */
-    email: null as string | null,
+    /** Public email address (also printed on quote PDFs). */
+    email: "redcodepr@gmail.com" as string | null,
     /** WhatsApp number in international format, digits only (e.g. "1787XXXXXXX"). Pending confirmation. */
     whatsapp: null as string | null,
   },

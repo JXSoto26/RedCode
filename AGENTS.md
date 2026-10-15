@@ -42,7 +42,7 @@ El flujo completo está en el README (secciones "Supabase DEV", "Pruebas", "Ento
 ## Cotizaciones finalizadas y envíos
 - Las revisiones (`quotes`, `quote_items`) son inmutables, y sus PDFs en el bucket privado `quote-pdfs` no se sobrescriben ni se borran. No intentes saltarte el trigger ni crees políticas de `update`/`delete` en ese bucket.
 - Nunca hagas público el bucket ni crees enlaces públicos o firmados para clientes sin que se pida.
-- Solo `confirmSend` (el botón "Confirmar envío") y `reconcileSend` ("Comprobar con Resend") llaman a Resend. Finalizar, abrir pantallas o guardar borradores no puede enviar nada.
+- Solo `confirmSend` (el botón "Confirmar envío") y `reconcileSend` ("Repetir envío con la misma clave") llaman a Resend. Finalizar, abrir pantallas o guardar borradores no puede enviar nada.
 - **Pruebas con envío real:** solo a `redcodepr@gmail.com`, sobre solicitudes de prueba, con contenido marcado como PRUEBA. Nunca uses ni modifiques los borradores del usuario para probar.
 - Un envío "incierto" nunca se reintenta con una clave nueva. Reconciliar solo con la misma fila y la misma clave, dentro de 23 h; después, solo resolución manual comprobada en el panel de Resend.
 - "Aceptado por Resend" no es "entregado". No lo presentes así.

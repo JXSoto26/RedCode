@@ -27,7 +27,7 @@ function setup(opts: SetupOptions = {}) {
     email:
       opts.mailer === null
         ? null
-        : { mailer: mail.mailer, ownerEmail: OWNER, replyTo: null, allowlist: opts.allowlist ?? null },
+        : { mailer: mail.mailer, from: "RedCode <a@b.dev>", ownerEmail: OWNER, replyTo: null, allowlist: opts.allowlist ?? null },
     log,
   };
   return { ...fake, ...mail, deps, log };

@@ -53,7 +53,7 @@ describe("POST /api/quote-requests", () => {
       mockDeps.current = {
         repo: fake.repo,
         bucketSecret: "s",
-        email: { mailer: createFakeMailer().mailer, ownerEmail: "o@example.com", replyTo: null, allowlist: null },
+        email: { mailer: createFakeMailer().mailer, from: "RedCode <a@b.dev>", ownerEmail: "o@example.com", replyTo: null, allowlist: null },
       };
     });
 

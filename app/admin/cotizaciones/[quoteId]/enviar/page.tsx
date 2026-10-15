@@ -83,6 +83,14 @@ export default async function ReviewSendPage({
             <dd className="break-all font-medium">
               {quote.contactName} &lt;{quote.recipientEmail}&gt;
             </dd>
+            {settings && (
+              <>
+                <dt className="text-muted-2">De</dt>
+                <dd className="break-all">{settings.from}</dd>
+                <dt className="text-muted-2">Responder a</dt>
+                <dd className="break-all">{settings.replyTo ?? "Sin Reply-To (QUOTE_EMAIL_REPLY_TO vacío)"}</dd>
+              </>
+            )}
             <dt className="text-muted-2">Referencia</dt>
             <dd>
               {quote.quoteReference} · Revisión {quote.revision}

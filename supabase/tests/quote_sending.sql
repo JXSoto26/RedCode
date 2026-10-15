@@ -48,7 +48,7 @@ begin
   exception when insufficient_privilege then null;
   end;
   begin
-    perform public.admin_begin_quote_send(gen_random_uuid(), gen_random_uuid(), 'envio', 's', 'b');
+    perform public.admin_begin_quote_send(gen_random_uuid(), gen_random_uuid(), 'envio', 's', 'b', 'RedCode <onboarding@resend.dev>', 'redcodepr@gmail.com');
     raise exception 'FAIL: anon can begin a send';
   exception when insufficient_privilege then null;
   end;
@@ -205,27 +205,28 @@ declare
 begin
   -- No PDF yet on revision 2.
   begin
-    perform public.admin_begin_quote_send(q2, gen_random_uuid(), 'envio', 'Asunto', 'Cuerpo');
+    perform public.admin_begin_quote_send(q2, gen_random_uuid(), 'envio', 'Asunto', 'Cuerpo', 'RedCode <onboarding@resend.dev>', 'redcodepr@gmail.com');
     raise exception 'FAIL: send without PDF registered';
   exception when sqlstate 'RC422' then null;
   end;
 
   -- Same request key (double click / concurrent submit) → one row.
-  select * into r from public.admin_begin_quote_send(q1, '00000000-0000-4000-8000-00000000e001', 'envio', ' Asunto ', 'Cuerpo');
+  select * into r from public.admin_begin_quote_send(q1, '00000000-0000-4000-8000-00000000e001', 'envio', ' Asunto ', 'Cuerpo', 'RedCode <onboarding@resend.dev>', 'redcodepr@gmail.com');
   if r.existing or r.status <> 'pendiente' then raise exception 'FAIL: first begin'; end if;
   s1 := r.send_id;
-  select * into r from public.admin_begin_quote_send(q1, '00000000-0000-4000-8000-00000000e001', 'envio', 'Asunto', 'Cuerpo');
+  select * into r from public.admin_begin_quote_send(q1, '00000000-0000-4000-8000-00000000e001', 'envio', 'Asunto', 'Cuerpo', 'RedCode <onboarding@resend.dev>', 'redcodepr@gmail.com');
   if not r.existing or r.send_id <> s1 then raise exception 'FAIL: same key created another send'; end if;
 
   -- The recipient and PDF come from the quote, never from the caller.
   select count(*) into n from public.quote_sends
   where id = s1 and recipient_email = 'sql@example.com' and subject = 'Asunto'
+    and sender = 'RedCode <onboarding@resend.dev>' and reply_to = 'redcodepr@gmail.com'
     and pdf_sha256 = repeat('a', 64) and requested_by_email = 'admin-quotes-test@example.com';
   if n <> 1 then raise exception 'FAIL: send snapshot wrong'; end if;
 
   -- Another key while one is open → refused.
   begin
-    perform public.admin_begin_quote_send(q1, gen_random_uuid(), 'envio', 'Asunto', 'Cuerpo');
+    perform public.admin_begin_quote_send(q1, gen_random_uuid(), 'envio', 'Asunto', 'Cuerpo', 'RedCode <onboarding@resend.dev>', 'redcodepr@gmail.com');
     raise exception 'FAIL: second send while one is open';
   exception when sqlstate 'RC409' then null;
   end;
@@ -263,17 +264,17 @@ begin
 
   -- A reload of the review page (new key) cannot send the first email again.
   begin
-    perform public.admin_begin_quote_send(q1, gen_random_uuid(), 'envio', 'Asunto', 'Cuerpo');
+    perform public.admin_begin_quote_send(q1, gen_random_uuid(), 'envio', 'Asunto', 'Cuerpo', 'RedCode <onboarding@resend.dev>', 'redcodepr@gmail.com');
     raise exception 'FAIL: first send repeated';
   exception when sqlstate 'RC409' then null;
   end;
 
   -- Deliberate resend: separate record. Uncertain → retry with the same row.
-  select send_id into s2 from public.admin_begin_quote_send(q1, gen_random_uuid(), 'reenvio', 'Asunto', 'Cuerpo');
+  select send_id into s2 from public.admin_begin_quote_send(q1, gen_random_uuid(), 'reenvio', 'Asunto', 'Cuerpo', 'RedCode <onboarding@resend.dev>', 'redcodepr@gmail.com');
   perform public.admin_claim_quote_send(s2, 'nuevo');
   perform public.admin_finish_quote_send(s2, 'incierto', null, 'timeout');
   begin
-    perform public.admin_begin_quote_send(q1, gen_random_uuid(), 'reenvio', 'Asunto', 'Cuerpo');
+    perform public.admin_begin_quote_send(q1, gen_random_uuid(), 'reenvio', 'Asunto', 'Cuerpo', 'RedCode <onboarding@resend.dev>', 'redcodepr@gmail.com');
     raise exception 'FAIL: new resend while one is uncertain';
   exception when sqlstate 'RC409' then null;
   end;
@@ -286,14 +287,14 @@ begin
 
   -- Rule: a send never overwrites aceptada or cerrada.
   perform public.admin_set_quote_status('00000000-0000-4000-8000-0000000000c2', 'propuesta_enviada', 'aceptada');
-  select send_id into s2 from public.admin_begin_quote_send(q1, gen_random_uuid(), 'reenvio', 'Asunto', 'Cuerpo');
+  select send_id into s2 from public.admin_begin_quote_send(q1, gen_random_uuid(), 'reenvio', 'Asunto', 'Cuerpo', 'RedCode <onboarding@resend.dev>', 'redcodepr@gmail.com');
   perform public.admin_claim_quote_send(s2, 'nuevo');
   eff := public.admin_finish_quote_send(s2, 'aceptado', 'test-provider-id-2', null);
   select status into st from public.quote_requests where id = '00000000-0000-4000-8000-0000000000c2';
   if eff <> 'sin_cambio_aceptada' or st <> 'aceptada' then raise exception 'FAIL: aceptada overwritten'; end if;
 
   -- Manual reconciliation: "not sent" → fallido; cannot resolve twice.
-  select send_id into s2 from public.admin_begin_quote_send(q1, gen_random_uuid(), 'reenvio', 'Asunto', 'Cuerpo');
+  select send_id into s2 from public.admin_begin_quote_send(q1, gen_random_uuid(), 'reenvio', 'Asunto', 'Cuerpo', 'RedCode <onboarding@resend.dev>', 'redcodepr@gmail.com');
   perform public.admin_claim_quote_send(s2, 'nuevo');
   perform public.admin_finish_quote_send(s2, 'incierto', null, 'network_error');
   perform public.admin_resolve_quote_send(s2, 'no_enviado', null);
@@ -381,7 +382,7 @@ begin
   exception when sqlstate 'RC403' then null;
   end;
   begin
-    perform public.admin_begin_quote_send(q1, gen_random_uuid(), 'envio', 's', 'b');
+    perform public.admin_begin_quote_send(q1, gen_random_uuid(), 'envio', 's', 'b', 'RedCode <onboarding@resend.dev>', 'redcodepr@gmail.com');
     raise exception 'FAIL: non-admin began a send';
   exception when sqlstate 'RC403' then null;
   end;

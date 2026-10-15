@@ -167,12 +167,14 @@ export function ReconcileForm({ quoteId, sendId }: { quoteId: string; sendId: st
       <div>
         <Button type="submit" size="sm" variant="secondary" disabled={pending}>
           {pending ? <Loader2 className="animate-spin" aria-hidden /> : <RefreshCw aria-hidden />}
-          Comprobar con Resend
+          Repetir envío con la misma clave
         </Button>
       </div>
       <p className="text-xs text-muted-2">
-        Repite la misma petición con la misma clave de idempotencia: si Resend ya la había aceptado, devuelve el
-        mismo resultado y no envía otro email.
+        <strong className="font-semibold text-muted">No es una consulta de entrega.</strong> Vuelve a enviar a Resend la
+        misma petición de envío (mismo destinatario, remitente, Reply-To, asunto, mensaje y PDF) con la misma clave de
+        idempotencia. Si Resend ya la había aceptado, devuelve el mismo ID y no envía otro email; si no la había
+        recibido, la envía una sola vez. Solo está disponible durante 23 horas desde el envío original.
       </p>
       <Feedback state={state} />
     </form>

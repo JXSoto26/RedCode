@@ -31,7 +31,7 @@ const RPCS: [string, Record<string, unknown>][] = [
   ["admin_save_quote_draft", { p_request_id: randomUUID(), p_expected_version: null, p_draft: {}, p_items: [] }],
   ["admin_finalize_quote", { p_request_id: randomUUID(), p_expected_version: 1 }],
   ["admin_attach_quote_pdf", { p_quote_id: randomUUID(), p_path: "x/y.pdf", p_sha256: "a".repeat(64), p_size: 1 }],
-  ["admin_begin_quote_send", { p_quote_id: randomUUID(), p_request_key: randomUUID(), p_kind: "envio", p_subject: "s", p_body: "b" }],
+  ["admin_begin_quote_send", { p_quote_id: randomUUID(), p_request_key: randomUUID(), p_kind: "envio", p_subject: "s", p_body: "b", p_sender: "x <x@example.com>", p_reply_to: null }],
   ["admin_claim_quote_send", { p_send_id: randomUUID(), p_mode: "nuevo" }],
   ["admin_finish_quote_send", { p_send_id: randomUUID(), p_outcome: "aceptado", p_provider_id: "x", p_error: null }],
   ["admin_resolve_quote_send", { p_send_id: randomUUID(), p_resolution: "no_enviado", p_provider_id: null }],

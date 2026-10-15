@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { pdfFontHasGlyph, pdfSafeText, quoteDocDefinition, renderQuotePdf, type QuoteForPdf } from "@/lib/admin/quote-pdf";
 
 const base: QuoteForPdf = {
@@ -22,6 +22,11 @@ const base: QuoteForPdf = {
   ],
 };
 
+// Loading the embedded fonts once is slow on a busy machine; do it up front.
+beforeAll(() => {
+  pdfFontHasGlyph(0x41);
+}, 60_000);
+
 const textOf = (doc: unknown) => JSON.stringify(doc);
 const pages = (pdf: Buffer) => (pdf.toString("latin1").match(/\/Type \/Page[^s]/g) ?? []).length;
 
@@ -37,6 +42,12 @@ describe("quote PDF content", () => {
     expect(text).not.toMatch(/https?:\/\/|\/admin\//);
     expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/); // no UUIDs
     expect(text).not.toMatch(/\b(factura|impuestos?|IVA|depósito)\b/i);
+  });
+
+  it("prints the confirmed public contact email, and no WhatsApp while none is configured", () => {
+    const text = textOf(quoteDocDefinition(base));
+    expect(text).toContain("redcodepr@gmail.com");
+    expect(text).not.toMatch(/whatsapp|wa\.me|\+1\d{10}/i);
   });
 
   it("shows optional sections only when defined", () => {

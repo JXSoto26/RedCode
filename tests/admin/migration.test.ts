@@ -165,3 +165,25 @@ describe("quote sending migration", () => {
     expect(rule).toContain("insert into public.quote_status_history");
   });
 });
+
+describe("sender and Reply-To migration", () => {
+  const sql = readFileSync(
+    join(dir, readdirSync(dir).find((f) => f.endsWith("_quote_sends_sender_reply_to.sql"))!),
+    "utf8"
+  ).toLowerCase();
+
+  it("records sender and Reply-To with each send, keeping the admin check and privileges", () => {
+    expect(sql).toContain("add column sender text");
+    expect(sql).toContain("add column reply_to text");
+    const fn = /create function public\.admin_begin_quote_send\([\s\S]*?\$\$([\s\S]*?)\$\$;/.exec(sql)!;
+    expect(fn[0]).toContain("security definer");
+    expect(fn[0]).toContain("set search_path = ''");
+    expect(fn[1].slice(fn[1].search(/^begin$/m))).toMatch(/^begin\s+if not private\.is_admin\(\) then\s+raise exception 'forbidden'/);
+    expect(fn[1]).toContain("btrim(p_sender), nullif(btrim(p_reply_to), '')");
+    expect(sql).toContain(
+      "revoke all on function public.admin_begin_quote_send(uuid, uuid, text, text, text, text, text)\n  from public, anon, authenticated, service_role"
+    );
+    expect(sql).toContain("drop function public.admin_begin_quote_send(uuid, uuid, text, text, text);");
+    expect(sql).not.toMatch(/grant [^;]* to (anon|public|service_role)\b/);
+  });
+});

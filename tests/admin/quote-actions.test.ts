@@ -179,6 +179,8 @@ function backend(opts: { admin?: boolean; sub?: string | null; draftComplete?: b
           body: (a.p_body as string).trim(),
           pdf_path: quote.pdf_path,
           pdf_sha256: quote.pdf_sha256,
+          sender: a.p_sender,
+          reply_to: a.p_reply_to,
           status: "pendiente",
           attempts: 0,
           requested_by_email: "admin@example.com",
@@ -248,12 +250,14 @@ function fakeResend(responses: SendResult[] = [{ ok: true, id: "re-email-1" }]) 
   return { mailer, calls };
 }
 
-const settingsWith = (mailer: unknown, allowlist: string[] | null = ["redcodepr@gmail.com"]) => ({
-  mailer,
-  ownerEmail: "redcodepr@gmail.com",
-  replyTo: null,
-  allowlist,
-});
+const settingsWith = (
+  mailer: unknown,
+  allowlist: string[] | null = ["redcodepr@gmail.com"],
+  identity: { from: string; replyTo: string | null } = {
+    from: "RedCode Web Design Studio <onboarding@resend.dev>",
+    replyTo: "redcodepr@gmail.com",
+  }
+) => ({ mailer, ownerEmail: "redcodepr@gmail.com", allowlist, ...identity });
 
 const idle = { ok: false, message: null };
 const form = (fields: Record<string, string>) => {
@@ -417,11 +421,55 @@ describe("send", () => {
     expect((await confirmSend(idle, sendForm())).ok).toBe(false);
     expect(resend.calls).toHaveLength(1);
 
+    // Even if the configured sender / Reply-To change before the retry...
+    env.settings = settingsWith(resend.mailer, ["redcodepr@gmail.com"], {
+      from: "Otro remitente <otro@example.com>",
+      replyTo: "otro@example.com",
+    });
     const rec = await reconcileSend(idle, form({ quoteId: QUOTE_ID, sendId: db.sends[0].id }));
     expect(rec.ok).toBe(true);
     expect(resend.calls).toHaveLength(2);
-    expect(resend.calls[1]).toEqual(resend.calls[0]); // identical request → Resend dedupes it
+    // ...the retry is the identical request: same key, sender, Reply-To, text and PDF → Resend dedupes it.
+    expect(resend.calls[1]).toEqual(resend.calls[0]);
+    expect(resend.calls[1]).toMatchObject({
+      idempotencyKey: `quote-send/${db.sends[0].id}`,
+      from: "RedCode Web Design Studio <onboarding@resend.dev>",
+      replyTo: "redcodepr@gmail.com",
+    });
     expect(db.sends[0]).toMatchObject({ status: "aceptado", attempts: 2 });
+  });
+
+  it("uses the configured Reply-To and records sender and Reply-To with the send", async () => {
+    await confirmSend(idle, sendForm());
+    expect(resend.calls[0]).toMatchObject({
+      from: "RedCode Web Design Studio <onboarding@resend.dev>",
+      replyTo: "redcodepr@gmail.com",
+    });
+    expect(db.sends[0]).toMatchObject({
+      sender: "RedCode Web Design Studio <onboarding@resend.dev>",
+      reply_to: "redcodepr@gmail.com",
+    });
+  });
+
+  it("omits Reply-To when none is configured", async () => {
+    env.settings = settingsWith(resend.mailer, ["redcodepr@gmail.com"], {
+      from: "RedCode Web Design Studio <onboarding@resend.dev>",
+      replyTo: null,
+    });
+    await confirmSend(idle, sendForm());
+    expect(resend.calls[0].replyTo).toBeUndefined();
+  });
+
+  it("repeating with the same key is refused outside the safe window, without calling Resend", async () => {
+    resend = fakeResend([{ ok: false, error: "timeout" }]);
+    env.settings = settingsWith(resend.mailer);
+    await confirmSend(idle, sendForm());
+    // The database refuses the claim after 23 h (RC409; checked live in supabase/tests/quote_sending.sql).
+    db.failures.admin_claim_quote_send = { code: "RC409" };
+    const r = await reconcileSend(idle, form({ quoteId: QUOTE_ID, sendId: db.sends[0].id }));
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/más de 23 horas/);
+    expect(resend.calls).toHaveLength(1);
   });
 
   it("Resend accepted but recording failed → keeps it in progress and asks to reconcile, no resend", async () => {

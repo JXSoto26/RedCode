@@ -26,7 +26,7 @@ export function createResendMailer(
             "Idempotency-Key": message.idempotencyKey,
           },
           body: JSON.stringify({
-            from,
+            from: message.from ?? from,
             to: [message.to],
             subject: message.subject,
             text: message.text,

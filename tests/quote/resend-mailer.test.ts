@@ -23,6 +23,26 @@ describe("createResendMailer", () => {
     expect(JSON.parse(init.body as string)).toMatchObject({ to: ["ana@example.com"], reply_to: "jeremy@example.com" });
   });
 
+  it("sends an explicit sender, reply_to and attachments exactly as given", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ id: "email_2" }));
+    await createResendMailer("re_test", "Default <d@b.dev>", fetchMock).send({
+      ...message,
+      from: "RedCode Web Design Studio <onboarding@resend.dev>",
+      replyTo: "redcodepr@gmail.com",
+      attachments: [{ filename: "Cotizacion-COT-ABCD-EFGH-rev1.pdf", content: "JVBERi0=" }],
+    });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      from: "RedCode Web Design Studio <onboarding@resend.dev>",
+      to: ["ana@example.com"],
+      subject: "Asunto",
+      text: "Hola",
+      html: "<p>Hola</p>",
+      reply_to: "redcodepr@gmail.com",
+      attachments: [{ filename: "Cotizacion-COT-ABCD-EFGH-rev1.pdf", content: "JVBERi0=" }],
+    });
+  });
+
   it("keeps only a short error code, never the provider message", async () => {
     const fetchMock = vi.fn(async () =>
       Response.json(

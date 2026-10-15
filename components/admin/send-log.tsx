@@ -32,6 +32,14 @@ export function SendLog({ quoteId, sends, now }: { quoteId: string; sends: Quote
             <dl className="mt-3 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-[9rem_1fr]">
               <dt className="text-muted-2">Destinatario</dt>
               <dd className="break-all">{s.recipientEmail}</dd>
+              {s.sender && (
+                <>
+                  <dt className="text-muted-2">Remitente</dt>
+                  <dd className="break-all">{s.sender}</dd>
+                  <dt className="text-muted-2">Responder a</dt>
+                  <dd className="break-all">{s.replyTo ?? "Sin Reply-To"}</dd>
+                </>
+              )}
               <dt className="text-muted-2">Asunto</dt>
               <dd className="break-words">{s.subject}</dd>
               <dt className="text-muted-2">Confirmado por</dt>
@@ -81,7 +89,7 @@ export function SendLog({ quoteId, sends, now }: { quoteId: string; sends: Quote
                 <p className="text-xs text-amber-100">
                   No reenvíes por tu cuenta: podría llegar dos veces.{" "}
                   {inWindow
-                    ? "Primero usa “Comprobar con Resend”. Si no se resuelve, búscalo en el panel de Resend y regístralo a mano."
+                    ? "Primero usa “Repetir envío con la misma clave”. Si no se resuelve, búscalo en el panel de Resend y regístralo a mano."
                     : "Pasaron más de 23 horas: búscalo en el panel de Resend (Emails) y regístralo a mano."}
                 </p>
                 {inWindow && <ReconcileForm quoteId={quoteId} sendId={s.id} />}

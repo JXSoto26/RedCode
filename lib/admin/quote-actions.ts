@@ -23,7 +23,7 @@ import type { AdminSupabase } from "./supabase";
  * Server Actions for finalizing and sending quotes. Each one checks the admin
  * and validates its input itself. Nothing here sends email except
  * confirmSend (explicit "Confirmar envío") and reconcileSend (explicit
- * "Comprobar con Resend", same payload and idempotency key).
+ * "Repetir envío con la misma clave", same payload and idempotency key).
  */
 
 export type QuoteActionState = { ok: boolean; message: string | null; problems?: string[] };
@@ -163,13 +163,20 @@ async function deliver(supabase: AdminSupabase, settings: EmailSettingsT, quote:
     return { ok: false, message: "No se pudo leer el PDF guardado; no se envió nada. Inténtalo de nuevo." };
   }
 
+  // Everything comes from the stored send, never from the current environment,
+  // so a retry is the identical request. Sends recorded before the sender was
+  // stored fall back to the current settings.
+  const sender = send.sender ?? settings.from;
+  const replyTo = send.sender ? send.replyTo : settings.replyTo;
+
   const result = await settings.mailer
     .send({
+      from: sender,
       to: send.recipientEmail,
       subject: send.subject,
       text: send.body,
       html: quoteEmailHtml(send.body),
-      ...(settings.replyTo && { replyTo: settings.replyTo }),
+      ...(replyTo && { replyTo }),
       idempotencyKey: `quote-send/${send.id}`,
       attachments: [{ filename: pdfFilename(quote.quoteReference, quote.revision), content: Buffer.from(pdf).toString("base64") }],
     })
@@ -179,13 +186,13 @@ async function deliver(supabase: AdminSupabase, settings: EmailSettingsT, quote:
   const recorded = await finish(outcome, providerId, error);
   if (recorded.error) {
     // Resend answered but the database did not record it. The send stays
-    // "en proceso"; "Comprobar con Resend" repeats the call with the same
+    // "en proceso"; "Repetir envío con la misma clave" repeats the call with the same
     // idempotency key, so it cannot send a second email.
     console.error("[admin] send_record_failed", { sendId: send.id, outcome, providerId, code: recorded.error.code });
     return {
       ok: false,
       message:
-        "Resend respondió, pero no se pudo registrar el resultado. No vuelvas a enviar: en unos minutos usa “Comprobar con Resend”.",
+        "Resend respondió, pero no se pudo registrar el resultado. No vuelvas a enviar: en unos minutos usa “Repetir envío con la misma clave”.",
     };
   }
 
@@ -193,7 +200,7 @@ async function deliver(supabase: AdminSupabase, settings: EmailSettingsT, quote:
   if (outcome === "fallido") return { ok: false, message: `Resend no aceptó el envío (${error}). No se envió nada.` };
   return {
     ok: false,
-    message: "No se sabe si Resend aceptó el email. No se reintentará solo. Revisa el registro de envíos y usa “Comprobar con Resend”.",
+    message: "No se sabe si Resend aceptó el email. No se reintentará solo. Revisa el registro de envíos y usa “Repetir envío con la misma clave”.",
   };
 }
 
@@ -220,6 +227,9 @@ export async function confirmSend(_prev: QuoteActionState, formData: FormData): 
     p_kind: kind,
     p_subject: subject,
     p_body: body,
+    // Recorded with the send so a retry repeats exactly the same request.
+    p_sender: settings!.from,
+    p_reply_to: settings!.replyTo,
   });
   if (begun.error) {
     return {
