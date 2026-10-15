@@ -2,13 +2,18 @@ import "server-only";
 import type { Mailer } from "./types";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
-const TIMEOUT_MS = 8_000;
+const DEFAULT_TIMEOUT_MS = 8_000;
 
 /**
  * Minimal Resend client over its REST API. Uses Resend's Idempotency-Key header
  * so a retried notification is never delivered twice.
  */
-export function createResendMailer(apiKey: string, from: string, fetchImpl: typeof fetch = fetch): Mailer {
+export function createResendMailer(
+  apiKey: string,
+  from: string,
+  fetchImpl: typeof fetch = fetch,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS
+): Mailer {
   return {
     async send(message) {
       let response: Response;
@@ -27,8 +32,9 @@ export function createResendMailer(apiKey: string, from: string, fetchImpl: type
             text: message.text,
             html: message.html,
             ...(message.replyTo && { reply_to: message.replyTo }),
+            ...(message.attachments?.length && { attachments: message.attachments }),
           }),
-          signal: AbortSignal.timeout(TIMEOUT_MS),
+          signal: AbortSignal.timeout(timeoutMs),
         });
       } catch (error) {
         const name = error instanceof Error ? error.name : "";

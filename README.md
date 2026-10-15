@@ -98,6 +98,9 @@ La migración inicial crea `quote_requests` y `quote_rate_limits` con RLS activa
 | `/admin/solicitudes` | Bandeja: referencia, negocio, contacto, servicio, fecha y estado. Más recientes primero, búsqueda por referencia, negocio o contacto, filtro por estado y paginación de 20 en 20 en el servidor |
 | `/admin/solicitudes/[id]` | Detalle: toda la información enviada, estado de los dos emails, cambio de estado con historial, notas internas, enlaces de email y WhatsApp, y el borrador de cotización |
 | `/admin/solicitudes/[id]/cotizacion` | Vista previa privada e imprimible del borrador (Imprimir → Guardar como PDF) |
+| `/admin/cotizaciones/[quoteId]` | Una cotización finalizada (revisión inmutable): documento, PDF, registro de envíos y acciones de envío |
+| `/admin/cotizaciones/[quoteId]/pdf` | El PDF exacto guardado de esa revisión. Solo administradores; sin caché |
+| `/admin/cotizaciones/[quoteId]/enviar` | Pantalla de revisión y envío (`?tipo=reenvio` para un reenvío intencional) |
 
 **Acceso:**
 
@@ -128,11 +131,79 @@ La migración inicial crea `quote_requests` y `quote_rate_limits` con RLS activa
 
 - Un borrador por solicitud, con título, resumen y alcance, entregables, exclusiones, partidas (descripción, cantidad y precio unitario en USD), y de forma opcional tiempo estimado, condiciones y vigencia.
 - No se precarga nada: ni precios, ni impuestos, ni depósitos, ni plazos, ni condiciones.
-- Se puede guardar incompleto. El detalle lista lo que falta, y la vista previa lo marca como "Pendiente".
+- Se puede guardar incompleto. El detalle lista lo que falta, y la vista previa lo marca como "Pendiente". Exclusiones, tiempo, condiciones y vigencia son opcionales.
 - **Importes:** se guardan en centavos enteros (cantidades con hasta 2 decimales) y el total se calcula en el servidor sin coma flotante (`lib/admin/money.ts`), redondeando cada línea al centavo. Si hay partidas sin cantidad o precio, el total se marca como parcial.
 - **Dos pestañas:** cada guardado indica la versión de la que parte. Si otra pestaña guardó antes, el guardado se rechaza y avisa, en lugar de sobrescribir.
-- Guardar un borrador **no** cambia el estado ni envía nada. Esta fase no incluye envío de propuestas, enlaces públicos, PDF generado en el servidor, aceptación electrónica ni pagos.
+- Guardar un borrador **no** cambia el estado ni envía nada.
 - No existe forma de borrar solicitudes desde el panel ni desde la API.
+
+**Finalizar una cotización:**
+
+- "Finalizar cotización" (en el detalle de la solicitud) congela la versión guardada del borrador en una **revisión inmutable**, con:
+  - Referencia `COT-XXXX-XXXX` y número de revisión.
+  - Copia del negocio, el contacto y el email de destino.
+  - Contenido, partidas, moneda (USD) y total calculado en la base, en centavos.
+  - Fecha, administrador y versión del borrador de origen.
+- **Requisitos**, comprobados en la pantalla, en el servidor y en la base:
+  - Título, alcance y entregables.
+  - Al menos una partida, todas completas, con cantidad mayor que 0.
+  - Total mayor que $0.00.
+  - Que la versión revisada siga siendo la actual. Si alguien guardó el borrador después, se rechaza.
+- Finalizar dos veces la misma versión devuelve la misma revisión. Una revisión nueva requiere cambiar el borrador y conserva las anteriores.
+- Las revisiones no se pueden modificar ni borrar. Un trigger lo impide incluso con la clave del propietario; solo se permite registrar su PDF una vez.
+- Finalizar **no envía nada** y no cambia el estado.
+
+**PDF:**
+
+- Se genera en el servidor con `pdfmake` (JavaScript puro, sin navegador), a partir de la revisión inmutable.
+- **Contenido:** "Cotización", referencia, revisión, fecha, cliente, alcance, entregables, partidas, total en USD, y exclusiones, tiempo, condiciones y vigencia solo si existen.
+- **Lo que no lleva:** marca de borrador, URLs, identificadores internos, notas internas ni impuestos.
+- **Fuente:** Roboto incrustada, con tildes, ñ, ¿ y ¡. Los símbolos que la fuente no puede dibujar se sustituyen (→ por `->`, ✓ por `•`) o se omiten (emojis), para que nunca salgan recuadros vacíos.
+- **Paginación:** los encabezados de la tabla se repiten en cada página, las filas no se parten y el total va en la última fila de la tabla.
+- **Almacenamiento:** se guarda una sola vez en el bucket **privado** `quote-pdfs` de Supabase Storage, con su hash SHA-256 y su tamaño. Solo los administradores pueden subir y leer; nadie puede sobrescribir ni borrar, y no hay enlaces públicos. Cada descarga comprueba el hash.
+
+**Envío (manual, con confirmación):**
+
+1. En la cotización finalizada, pulsa **"Revisar y enviar"**. La pantalla muestra:
+   - El destinatario, que es el email de la solicitud y no se puede cambiar.
+   - El asunto y el mensaje, editables.
+   - La referencia, la revisión y el total.
+   - El PDF exacto que se adjuntará, con su hash.
+2. Marca la casilla y pulsa **"Confirmar envío"**. Nada se envía al finalizar, al abrir pantallas ni al guardar borradores.
+3. **Lista de autorizados:** se respetan `QUOTE_EMAIL_DELIVERY` y `QUOTE_EMAIL_ALLOWLIST`. Si el destinatario no está autorizado (DEV y Preview), el envío se bloquea con un mensaje y no se registra nada.
+4. Se usa Resend desde el servidor, con el PDF adjunto y la clave de idempotencia `quote-send/<id del envío>`.
+
+**Registro de envíos** (`quote_sends`):
+
+- **Qué guarda:** tipo (envío o reenvío), destinatario, asunto, mensaje, ruta y hash del PDF adjunto, administrador que confirmó, fechas, intentos, ID de Resend, último error y efecto sobre el estado.
+- **Estados:**
+
+  | Estado | Significado |
+  | --- | --- |
+  | Pendiente | Registrado; aún no se llamó a Resend |
+  | En proceso | Llamada a Resend en curso |
+  | Aceptado por Resend | Resend lo aceptó para envío. **No significa entregado**: no hay webhooks |
+  | Fallido | Resend lo rechazó (4xx) o se confirmó que no se envió |
+  | Resultado incierto | No se sabe si Resend lo aceptó (tiempo agotado, error de red, 5xx o conflicto de idempotencia) |
+
+- **Sin duplicados:**
+  - Un doble clic, dos pestañas o un envío simultáneo de la misma pantalla comparten la misma clave y crean un único registro. Solo una petición puede llamar a Resend.
+  - Después de un envío aceptado, un nuevo "envío" se rechaza. Para mandarlo otra vez hay que usar **"Reenviar…"**, que es una acción separada, con su propia confirmación y su propio registro.
+  - Mientras haya un envío pendiente, en proceso o incierto, no se puede iniciar otro.
+- **Regla de estado**, aplicada en la base en la misma transacción que registra la aceptación:
+  - Una solicitud Nueva o Por aclarar pasa a **Propuesta enviada**, con entrada en el historial.
+  - Si ya está en Propuesta enviada, Aceptada o Cerrada, **no cambia**. Nunca se sobrescriben Aceptada ni Cerrada.
+
+**Reconciliar un resultado incierto (o un envío "sin respuesta registrada"):**
+
+- **Nunca** reenvíes por tu cuenta. Podría llegar dos veces.
+- **Menos de 23 h desde el envío:** pulsa **"Comprobar con Resend"**. Repite exactamente la misma petición (mismo asunto, mensaje, PDF y clave de idempotencia):
+  - Si Resend ya la había aceptado, devuelve el mismo ID y no envía otro email.
+  - Si no la había recibido, la envía una sola vez.
+- **Más de 23 h** (Resend guarda las claves 24 h): búscalo en el panel de Resend, en **Emails**, y regístralo a mano:
+  - "Aparece en Resend", con el ID del email.
+  - "No aparece: no se envió". Así queda como fallido y se puede enviar de nuevo.
+- Si Resend aceptó el email pero la base no pudo registrarlo, el envío queda "en proceso". Pasados 2 minutos aparece como "sin respuesta registrada" y se resuelve igual: "Comprobar con Resend" no lo duplica.
 
 ### Email (Resend)
 
@@ -160,7 +231,10 @@ La migración inicial crea `quote_requests` y `quote_rate_limits` con RLS activa
   - La clave secreta no puede leer notas ni borradores.
 
   No se ejecutan si `SUPABASE_URL` no coincide con `SUPABASE_DEV_PROJECT_REF`. Dejan filas marcadas como "Prueba automatizada" en DEV y no envían emails.
-- `npm run test:db`: ejecuta [supabase/tests/admin_access.sql](supabase/tests/admin_access.sql) contra DEV con los roles reales (`anon`, usuario sin permiso, administrador y `service_role`). Cubre los permisos, el cambio de estado con historial atómico, el conflicto entre pestañas, las notas y los borradores. Todo ocurre dentro de una transacción que se revierte, así que no deja datos.
+- `npm run test:db`: ejecuta contra DEV, con los roles reales (`anon`, usuario sin permiso, administrador y `service_role`), dos archivos SQL. Todo ocurre dentro de transacciones que se revierten: no deja datos ni envía emails.
+  - [supabase/tests/admin_access.sql](supabase/tests/admin_access.sql): permisos, cambio de estado con historial atómico, conflicto entre pestañas, notas y borradores.
+  - [supabase/tests/quote_sending.sql](supabase/tests/quote_sending.sql): finalizar (incompleto, versión vieja, doble clic, revisiones), inmutabilidad, PDF único, envío idempotente, regla de estado, conciliación, ventana de 23 h, almacenamiento privado y borrar a un administrador.
+- **PDF:** `npm test` genera PDFs reales (cortos y de varias páginas). Para revisarlos a ojo, genera uno con `renderQuotePdf` y ábrelo.
 - **Formulario completo (manual):** con `npm run dev`, envía una solicitud desde `/cotizar` usando como email del visitante una dirección de `QUOTE_EMAIL_ALLOWLIST`. Comprueba en `quote_requests` que la fila existe con `status = nueva` y los dos `*_email_status = enviado`. `enviado` significa que Resend **aceptó** el email, no que se haya entregado; la entrega se confirma en el panel de Resend (**Emails**) o en el buzón.
 
 Orden recomendado antes de subir cambios: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` y, si hubo cambios en la base, en `lib/quote/` o en `lib/admin/`, `npm run db:status`, `npm run test:dev` y `npm run test:db`.
@@ -199,4 +273,5 @@ Orden recomendado antes de subir cambios: `npm run lint`, `npm run typecheck`, `
 
 - Política de privacidad. El formulario pide autorización para usar los datos (`CONSENT_TEXT` y `CONSENT_VERSION` en `lib/quote/options.ts`; si cambias el texto, cambia también la versión), pero no enlaza a ninguna política porque todavía no existe.
 - Proyecto Supabase PROD independiente, con las migraciones aplicadas, registro público desactivado, su propio administrador y sus variables solo en el entorno Production de Vercel.
-- Dominio verificado en Resend y `QUOTE_EMAIL_DELIVERY=all` en producción.
+- Dominio verificado en Resend y `QUOTE_EMAIL_DELIVERY=all` en producción. Hasta entonces, las cotizaciones solo pueden enviarse a direcciones de la lista autorizada.
+- Datos comerciales para el PDF: si quieres que aparezcan email o WhatsApp de contacto, configúralos en `lib/site.ts`. El PDF solo muestra los datos confirmados.

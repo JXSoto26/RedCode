@@ -5,6 +5,7 @@ import { ArrowLeft, Mail, MessageCircle } from "lucide-react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { DraftEditor } from "@/components/admin/draft-editor";
 import { NoteForm } from "@/components/admin/note-form";
+import { FinalizeForm } from "@/components/admin/quote-forms";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { StatusForm } from "@/components/admin/status-form";
 import { Button } from "@/components/ui/button";
@@ -18,11 +19,15 @@ import {
   mailtoLink,
   whatsappLink,
 } from "@/lib/admin/labels";
-import { computeTotals } from "@/lib/admin/money";
+import { computeTotals, formatCents } from "@/lib/admin/money";
+import { SEND_STATUS, finalizeProblems } from "@/lib/admin/quote-send";
+import { listQuotesForRequest } from "@/lib/admin/quotes";
 import { fullSummaryRows } from "@/lib/quote/emails";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Solicitud" };
+// Finalizing generates the PDF in this page's Server Action.
+export const maxDuration = 60;
 
 function Section({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
@@ -51,6 +56,10 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const whatsapp = whatsappLink(data.whatsapp);
   const pending = pendingFields(draft);
   const savedTotal = draft ? computeTotals(draft.items) : null;
+  const quotes = await listQuotesForRequest(request.id);
+  const problems = finalizeProblems(draft);
+  const alreadyFinalized = draft ? quotes.find((q) => q.draftVersion === draft.version) : undefined;
+  const nextRevision = (quotes[0]?.revision ?? 0) + 1;
 
   return (
     <AdminShell email={admin.email}>
@@ -148,6 +157,49 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
               items={toEditorItems(draft)}
               savedTotal={savedTotal}
             />
+          </Section>
+
+          <Section title="Cotizaciones finalizadas">
+            {alreadyFinalized ? (
+              <p className="text-sm text-muted">
+                La versión actual del borrador ya está finalizada como revisión {alreadyFinalized.revision}. Para otra
+                revisión, guarda cambios en el borrador.
+              </p>
+            ) : problems.length > 0 ? (
+              <div className="rounded-xl border border-amber-400/25 bg-amber-400/[0.06] p-4 text-sm">
+                <p className="font-medium text-amber-100">Para finalizar falta:</p>
+                <ul className="mt-2 list-inside list-disc space-y-0.5 text-amber-100/80">
+                  {problems.map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-xs text-amber-100/70">Se revisa el borrador guardado; guarda tus cambios primero.</p>
+              </div>
+            ) : (
+              draft && <FinalizeForm requestId={request.id} draftVersion={draft.version} nextRevision={nextRevision} />
+            )}
+
+            {quotes.length > 0 && (
+              <ol className="mt-6 flex flex-col divide-y divide-border rounded-xl border border-border">
+                {quotes.map((q) => (
+                  <li key={q.id}>
+                    <Link
+                      href={`/admin/cotizaciones/${q.id}`}
+                      className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm transition-colors hover:bg-white/[0.02]"
+                    >
+                      <span>
+                        <span className="font-mono text-brand-300">{q.quoteReference}</span> · Revisión {q.revision}
+                        <span className="block text-xs text-muted-2">
+                          {formatDateTime(q.issuedAt)} · {q.hasPdf ? "PDF listo" : "Sin PDF"} ·{" "}
+                          {q.lastSend ? SEND_STATUS[q.lastSend.status].label : "Sin enviar"}
+                        </span>
+                      </span>
+                      <span className="font-semibold tabular-nums">{formatCents(q.totalCents)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            )}
           </Section>
         </div>
 

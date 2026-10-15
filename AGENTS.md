@@ -39,6 +39,15 @@ El flujo completo está en el README (secciones "Supabase DEV", "Pruebas", "Ento
 - No añadas eliminación de solicitudes, envío de propuestas, enlaces públicos, pagos ni IA sin que se pida.
 - Los importes se manejan en centavos enteros con `lib/admin/money.ts`. Nunca uses coma flotante para dinero.
 
+## Cotizaciones finalizadas y envíos
+- Las revisiones (`quotes`, `quote_items`) son inmutables, y sus PDFs en el bucket privado `quote-pdfs` no se sobrescriben ni se borran. No intentes saltarte el trigger ni crees políticas de `update`/`delete` en ese bucket.
+- Nunca hagas público el bucket ni crees enlaces públicos o firmados para clientes sin que se pida.
+- Solo `confirmSend` (el botón "Confirmar envío") y `reconcileSend` ("Comprobar con Resend") llaman a Resend. Finalizar, abrir pantallas o guardar borradores no puede enviar nada.
+- **Pruebas con envío real:** solo a `redcodepr@gmail.com`, sobre solicitudes de prueba, con contenido marcado como PRUEBA. Nunca uses ni modifiques los borradores del usuario para probar.
+- Un envío "incierto" nunca se reintenta con una clave nueva. Reconciliar solo con la misma fila y la misma clave, dentro de 23 h; después, solo resolución manual comprobada en el panel de Resend.
+- "Aceptado por Resend" no es "entregado". No lo presentes así.
+- `pdfmake` y `fontkit` son paquetes externos del servidor (`next.config.ts`). Si cambias cómo se cargan, comprueba que el trazado del build los incluye y que el PDF se genera con `next start`.
+
 ## Pruebas
 - `npm test` no usa red. `npm run test:dev` usa Supabase DEV y no envía emails.
 - Las pruebas que envían email real solo pueden tener como destinatario `redcodepr@gmail.com`, y `QUOTE_EMAIL_DELIVERY` debe ser `allowlist`.

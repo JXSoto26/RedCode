@@ -49,6 +49,8 @@ export type EmailMessage = {
   replyTo?: string;
   /** Provider-side idempotency key so retries never send twice. */
   idempotencyKey: string;
+  /** Files attached as base64 content. */
+  attachments?: { filename: string; content: string }[];
 };
 
 export type SendResult = { ok: true; id: string | null } | { ok: false; error: string };

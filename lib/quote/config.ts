@@ -31,7 +31,7 @@ export function isQuoteSubmissionEnabled() {
  * Email delivery is opt-in: unless QUOTE_EMAIL_DELIVERY=all, only addresses in
  * QUOTE_EMAIL_ALLOWLIST receive email (an empty allowlist sends nothing).
  */
-export function getEmailSettings(): EmailSettings | null {
+export function getEmailSettings(options: { timeoutMs?: number } = {}): EmailSettings | null {
   const apiKey = env("RESEND_API_KEY");
   const from = env("QUOTE_EMAIL_FROM");
   const ownerEmail = env("QUOTE_NOTIFY_EMAIL");
@@ -39,7 +39,7 @@ export function getEmailSettings(): EmailSettings | null {
 
   const deliverToAll = env("QUOTE_EMAIL_DELIVERY") === "all";
   return {
-    mailer: createResendMailer(apiKey, from),
+    mailer: createResendMailer(apiKey, from, fetch, options.timeoutMs),
     ownerEmail,
     replyTo: env("QUOTE_EMAIL_REPLY_TO"),
     allowlist: deliverToAll ? null : parseList(env("QUOTE_EMAIL_ALLOWLIST")),

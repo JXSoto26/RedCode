@@ -105,3 +105,63 @@ describe("admin panel migration", () => {
     expect(allSql).not.toMatch(/delete from public\.quote_requests|drop table|truncate/);
   });
 });
+
+describe("quote sending migration", () => {
+  const sending = readFileSync(join(dir, readdirSync(dir).find((f) => f.endsWith("_quote_sending.sql"))!), "utf8").toLowerCase();
+  const TABLES = ["quotes", "quote_items", "quote_sends"];
+  const FUNCTIONS = [
+    "admin_finalize_quote",
+    "admin_attach_quote_pdf",
+    "admin_begin_quote_send",
+    "admin_claim_quote_send",
+    "admin_finish_quote_send",
+    "admin_resolve_quote_send",
+  ];
+
+  it("locks down every new table: RLS, nothing for anon or service_role, admins read only", () => {
+    for (const t of TABLES) {
+      expect(sending).toContain(`alter table public.${t} enable row level security`);
+      expect(sending).toContain(`revoke all on table public.${t} from public, anon, authenticated, service_role`);
+      expect(sending).toContain(`grant select on table public.${t} to authenticated;`);
+      expect(sending).toMatch(
+        new RegExp(`create policy \\w+ on public\\.${t}\\s+for select to authenticated using \\(\\(select private\\.is_admin\\(\\)\\)\\);`)
+      );
+    }
+    expect(sending).not.toMatch(/grant [^;]* to (anon|public|service_role)\b/);
+    expect(sending).not.toMatch(/grant (insert|update|delete|all)/);
+  });
+
+  it("checks the admin first in every function", () => {
+    for (const name of FUNCTIONS) {
+      const match = new RegExp(`create function public\\.${name}\\([\\s\\S]*?\\$\\$([\\s\\S]*?)\\$\\$;`).exec(sending);
+      expect(match, name).not.toBeNull();
+      expect(match![0]).toContain("security definer");
+      expect(match![0]).toContain("set search_path = ''");
+      expect(match![1].slice(match![1].search(/^begin$/m))).toMatch(/^begin\s+if not private\.is_admin\(\) then\s+raise exception 'forbidden'/);
+      expect(sending).toMatch(
+        new RegExp(`revoke all on function public\\.${name}\\([^)]*\\) from public, anon, authenticated, service_role`)
+      );
+    }
+  });
+
+  it("keeps PDFs in a private bucket that admins can add to but never overwrite or delete", () => {
+    expect(sending).toContain("values ('quote-pdfs', 'quote-pdfs', false, 5242880, array['application/pdf'])");
+    const storagePolicies = [...sending.matchAll(/create policy \w+ on storage\.objects\s+for (\w+)/g)].map((m) => m[1]);
+    expect(storagePolicies.sort()).toEqual(["insert", "select"]);
+    expect(sending).toMatch(/bucket_id = 'quote-pdfs' and \(select private\.is_admin\(\)\)/);
+  });
+
+  it("makes finalized quotes immutable and sends idempotent", () => {
+    expect(sending).toContain("before update or delete on public.quotes");
+    expect(sending).toContain("before update or delete on public.quote_items");
+    expect(sending).toContain("constraint quote_sends_request_key_unique unique (request_key)");
+    expect(sending).toMatch(/create unique index quote_sends_one_first_send[\s\S]*where kind = 'envio' and status in \('pendiente', 'en_proceso', 'aceptado', 'incierto'\)/);
+    expect(sending).toContain("interval '23 hours'");
+  });
+
+  it("never overwrites aceptada or cerrada when a send is accepted", () => {
+    const rule = /create function private\.apply_send_acceptance[\s\S]*?\$\$;/.exec(sending)![0];
+    expect(rule).toContain("if v_status in ('nueva', 'por_aclarar') then");
+    expect(rule).toContain("insert into public.quote_status_history");
+  });
+});

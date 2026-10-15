@@ -123,14 +123,16 @@ export type StoredDraft = {
   items: (MoneyItem & { id: string })[];
 };
 
-/** Required parts of a proposal that are still empty. Optional fields are not listed. */
+/**
+ * Required parts of a proposal that are still empty. Optional fields
+ * (exclusions, time, terms, validity) are not listed.
+ */
 export function pendingFields(draft: StoredDraft | null): string[] {
-  if (!draft) return ["Título", "Resumen y alcance", "Entregables", "Exclusiones", "Partidas"];
+  if (!draft) return ["Título", "Resumen y alcance", "Entregables", "Partidas"];
   const pending: string[] = [];
   if (!draft.title) pending.push("Título");
   if (!draft.summary) pending.push("Resumen y alcance");
   if (!draft.deliverables) pending.push("Entregables");
-  if (!draft.exclusions) pending.push("Exclusiones");
   if (draft.items.length === 0) pending.push("Partidas");
   draft.items.forEach((item, i) => {
     const missing = [

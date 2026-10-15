@@ -15,11 +15,26 @@ const devRef = process.env.SUPABASE_DEV_PROJECT_REF ?? "";
 const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY ?? "";
 const secretKey = process.env.SUPABASE_SECRET_KEY ?? "";
 
-const PRIVATE_TABLES = ["quote_notes", "quote_drafts", "quote_draft_items", "quote_status_history", "admin_users"];
+const PRIVATE_TABLES = [
+  "quote_notes",
+  "quote_drafts",
+  "quote_draft_items",
+  "quote_status_history",
+  "admin_users",
+  "quotes",
+  "quote_items",
+  "quote_sends",
+];
 const RPCS: [string, Record<string, unknown>][] = [
   ["admin_set_quote_status", { p_request_id: randomUUID(), p_expected_status: "nueva", p_new_status: "cerrada" }],
   ["admin_add_quote_note", { p_request_id: randomUUID(), p_body: "x" }],
   ["admin_save_quote_draft", { p_request_id: randomUUID(), p_expected_version: null, p_draft: {}, p_items: [] }],
+  ["admin_finalize_quote", { p_request_id: randomUUID(), p_expected_version: 1 }],
+  ["admin_attach_quote_pdf", { p_quote_id: randomUUID(), p_path: "x/y.pdf", p_sha256: "a".repeat(64), p_size: 1 }],
+  ["admin_begin_quote_send", { p_quote_id: randomUUID(), p_request_key: randomUUID(), p_kind: "envio", p_subject: "s", p_body: "b" }],
+  ["admin_claim_quote_send", { p_send_id: randomUUID(), p_mode: "nuevo" }],
+  ["admin_finish_quote_send", { p_send_id: randomUUID(), p_outcome: "aceptado", p_provider_id: "x", p_error: null }],
+  ["admin_resolve_quote_send", { p_send_id: randomUUID(), p_resolution: "no_enviado", p_provider_id: null }],
 ];
 
 const options = { auth: { persistSession: false, autoRefreshToken: false } };
@@ -105,6 +120,28 @@ describe("signed-in user who is not an admin", () => {
       .maybeSingle();
     expect(draft.error).toBeNull();
     expect(draft.data).toBeNull();
+  });
+});
+
+describe("private PDF storage (bucket quote-pdfs)", () => {
+  const tinyPdf = new Blob(["%PDF-1.3 test"], { type: "application/pdf" });
+
+  it("anonymous: cannot list, download or upload", async () => {
+    const storage = createClient(url, publishableKey, options).storage.from("quote-pdfs");
+    const list = await storage.list("");
+    expect(list.data ?? []).toEqual([]);
+    expect((await storage.download("any/file.pdf")).data).toBeNull();
+    expect((await storage.upload(`intruder/${randomUUID()}.pdf`, tinyPdf)).error).not.toBeNull();
+    // No public URL works for a private bucket.
+    const pub = await fetch(`${url}/storage/v1/object/public/quote-pdfs/any/file.pdf`);
+    expect(pub.ok).toBe(false);
+  });
+
+  it("signed in without admin rights: cannot list, download or upload", async () => {
+    const storage = user.storage.from("quote-pdfs");
+    expect((await storage.list("")).data ?? []).toEqual([]);
+    expect((await storage.download("any/file.pdf")).data).toBeNull();
+    expect((await storage.upload(`intruder/${randomUUID()}.pdf`, tinyPdf)).error).not.toBeNull();
   });
 });
 

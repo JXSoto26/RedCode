@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  // Quote PDFs: load pdfmake (with pdfkit) and fontkit from node_modules at
+  // runtime instead of bundling them.
+  serverExternalPackages: ["pdfmake", "fontkit"],
 };
 
 export default nextConfig;

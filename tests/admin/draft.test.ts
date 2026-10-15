@@ -73,7 +73,7 @@ const stored = (overrides: Partial<StoredDraft> = {}): StoredDraft => ({
 
 describe("pendingFields", () => {
   it("lists every required part when there is no draft", () => {
-    expect(pendingFields(null)).toEqual(["Título", "Resumen y alcance", "Entregables", "Exclusiones", "Partidas"]);
+    expect(pendingFields(null)).toEqual(["Título", "Resumen y alcance", "Entregables", "Partidas"]);
   });
 
   it("is empty for a complete draft; optional fields are never pending", () => {

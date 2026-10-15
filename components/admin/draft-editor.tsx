@@ -21,7 +21,7 @@ type Props = {
 
 type Row = DraftItemInput & { key: number };
 
-const PENDING_FIELDS: (keyof DraftText)[] = ["title", "summary", "deliverables", "exclusions"];
+const PENDING_FIELDS: (keyof DraftText)[] = ["title", "summary", "deliverables"];
 
 function Pending() {
   return (
@@ -125,7 +125,7 @@ export function DraftEditor({ requestId, version, text, items, savedTotal }: Pro
       {textField("title", "Título", {})}
       {textField("summary", "Resumen y alcance", { multiline: true })}
       {textField("deliverables", "Entregables", { multiline: true, hint: "Uno por línea." })}
-      {textField("exclusions", "Exclusiones", { multiline: true, hint: "Lo que no incluye la propuesta. Uno por línea." })}
+      {textField("exclusions", "Exclusiones", { multiline: true, optional: true, hint: "Lo que no incluye la propuesta. Una por línea." })}
 
       <fieldset className="flex flex-col gap-3">
         <legend className="text-sm font-medium text-foreground/90">
