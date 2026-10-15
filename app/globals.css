@@ -10,7 +10,7 @@
   --color-border: rgba(255, 255, 255, 0.08);
   --color-foreground: #f4f4f5;
   --color-muted: #a1a1aa;
-  --color-muted-2: #71717a;
+  --color-muted-2: #8a8a93;
 
   /* Brand red scale */
   --color-brand-50: #fff1f1;
@@ -42,6 +42,14 @@
 
   html {
     scroll-behavior: smooth;
+    /* Keep anchored sections and focused fields clear of the fixed navbar. */
+    scroll-padding-top: 5.5rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 
   body {

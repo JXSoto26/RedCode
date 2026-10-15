@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
-
-const siteUrl = "https://redcode.dev";
+import { site } from "@/lib/site";
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -8,6 +7,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: `${siteUrl}/sitemap.xml`,
+    // The sitemap needs an absolute URL; it is listed once the domain is set in lib/site.ts.
+    ...(site.url && { sitemap: `${site.url}/sitemap.xml` }),
   };
 }

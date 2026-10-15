@@ -1,11 +1,13 @@
 import type { MetadataRoute } from "next";
-
-const siteUrl = "https://redcode.dev";
+import { site } from "@/lib/site";
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  // Sitemap entries require absolute URLs; empty until the domain is set in lib/site.ts.
+  if (!site.url) return [];
+
   return [
     {
-      url: siteUrl,
+      url: site.url,
       changeFrequency: "monthly",
       priority: 1,
     },

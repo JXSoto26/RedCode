@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { site } from "@/lib/site";
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,43 +16,44 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
-const siteUrl = "https://redcode.dev";
+const description =
+  "Diseño y desarrollo de páginas web informativas, landing pages y rediseños para pequeños negocios, profesionales independientes e iglesias en Puerto Rico.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  // Set once the public domain is confirmed in lib/site.ts.
+  ...(site.url && {
+    metadataBase: new URL(site.url),
+    alternates: { canonical: "/" },
+  }),
   title: {
-    default: "RedCode — Desarrollo web a medida para hacer crecer tu negocio",
-    template: "%s · RedCode",
+    default: `${site.name} | Páginas web en Puerto Rico`,
+    template: `%s · ${site.name}`,
   },
-  description:
-    "En RedCode creamos páginas web modernas, rápidas y diseñadas para generar resultados. Desarrollo web, tiendas online, landing pages y soluciones digitales a medida.",
+  description,
   keywords: [
-    "desarrollo web",
     "diseño web",
     "páginas web",
-    "tiendas online",
     "landing pages",
-    "agencia digital",
-    "Next.js",
-    "RedCode",
+    "rediseño web",
+    "Puerto Rico",
+    "pequeños negocios",
+    "iglesias",
+    site.name,
   ],
-  authors: [{ name: "RedCode" }],
-  creator: "RedCode",
+  authors: [{ name: site.owner }],
+  creator: site.owner,
   openGraph: {
     type: "website",
-    locale: "es_ES",
-    url: siteUrl,
-    siteName: "RedCode",
-    title:
-      "RedCode — Transformamos ideas en experiencias web que generan resultados",
-    description:
-      "Creamos páginas web modernas, rápidas y diseñadas para hacer crecer tu negocio.",
+    locale: "es_PR",
+    siteName: site.name,
+    title: `${site.name} | Páginas web en Puerto Rico`,
+    description,
+    ...(site.url && { url: site.url }),
   },
   twitter: {
-    card: "summary_large_image",
-    title: "RedCode — Desarrollo web a medida",
-    description:
-      "Creamos páginas web modernas, rápidas y diseñadas para hacer crecer tu negocio.",
+    card: "summary",
+    title: `${site.name} | Páginas web en Puerto Rico`,
+    description,
   },
   robots: {
     index: true,
@@ -70,10 +73,18 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="es"
+      lang="es-PR"
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
     >
-      <body className="min-h-dvh bg-background text-foreground">{children}</body>
+      <head>
+        {/* Without JavaScript, entrance animations never run: show content as-is. */}
+        <noscript>
+          <style>{"[data-reveal]{opacity:1!important;transform:none!important}"}</style>
+        </noscript>
+      </head>
+      <body className="min-h-dvh bg-background text-foreground">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

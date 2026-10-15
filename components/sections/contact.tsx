@@ -1,39 +1,20 @@
-"use client";
-
-import * as React from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { Mail, Phone, MapPin, Clock, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Mail, MapPin, MessageCircle, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/motion/reveal";
-import { cn } from "@/lib/utils";
+import { emailHref, hasContact, site, whatsappHref } from "@/lib/site";
 
 const CONTACT_INFO = [
-  { icon: Mail, label: "Correo", value: "hola@redcode.dev" },
-  { icon: Phone, label: "Teléfono", value: "+1 (829) 000-0000" },
-  { icon: MapPin, label: "Ubicación", value: "100% remoto · LATAM" },
-  { icon: Clock, label: "Respuesta", value: "En menos de 24 horas" },
+  { icon: UserRound, label: "Atención", value: `Directa con ${site.owner}` },
+  { icon: MapPin, label: "Ubicación", value: site.location },
 ];
 
-const PROJECT_TYPES = [
-  "Página web",
-  "Tienda online",
-  "Landing page",
-  "Desarrollo a medida",
-  "Otro",
-];
-
-const fieldClass =
-  "w-full rounded-xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground placeholder:text-muted-2 transition-colors focus:border-brand-600/60 focus:outline-none focus:ring-2 focus:ring-brand-600/20";
-
+/**
+ * Direct WhatsApp / email contact. Renders nothing until at least one contact
+ * method is configured in lib/site.ts, so no placeholder links go public.
+ */
 export function Contact() {
-  const [submitted, setSubmitted] = React.useState(false);
-
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    // MVP: simulate submission. Wire up to an API route / email service later.
-    setSubmitted(true);
-  }
+  if (!hasContact) return null;
 
   return (
     <section id="contacto" className="relative py-24 md:py-32">
@@ -42,14 +23,14 @@ export function Contact() {
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
           {/* Left: pitch + info */}
           <Reveal className="flex flex-col">
-            <Badge>Contacto</Badge>
+            <Badge className="self-start">Contacto</Badge>
             <h2 className="mt-5 text-balance text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-              Hagamos realidad tu{" "}
-              <span className="text-gradient-brand">próximo proyecto</span>
+              Hablemos de tu{" "}
+              <span className="text-gradient-brand">página web</span>
             </h2>
             <p className="mt-5 max-w-md text-pretty text-base leading-relaxed text-muted sm:text-lg">
-              Cuéntanos tu idea y te enviaremos una propuesta a medida. Sin
-              compromiso y sin tecnicismos innecesarios.
+              Cuéntame qué necesitas y te preparo una cotización según el
+              alcance de tu proyecto.
             </p>
 
             <dl className="mt-10 grid gap-5 sm:grid-cols-2">
@@ -71,122 +52,45 @@ export function Contact() {
             </dl>
           </Reveal>
 
-          {/* Right: form */}
+          {/* Right: direct contact options */}
           <Reveal delay={0.1}>
-            <div className="rounded-2xl border border-border bg-surface p-7 sm:p-8">
-              <AnimatePresence mode="wait">
-                {submitted ? (
-                  <motion.div
-                    key="success"
-                    initial={{ opacity: 0, scale: 0.96 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex flex-col items-center justify-center py-16 text-center"
-                  >
-                    <span className="grid size-16 place-items-center rounded-full bg-brand-600/15 text-brand-400">
-                      <CheckCircle2 className="size-8" />
-                    </span>
-                    <h3 className="mt-5 text-xl font-semibold">
-                      ¡Mensaje enviado!
-                    </h3>
-                    <p className="mt-2 max-w-xs text-sm text-muted">
-                      Gracias por escribirnos. Nuestro equipo te contactará en
-                      menos de 24 horas.
-                    </p>
-                    <Button
-                      variant="ghost"
-                      className="mt-6"
-                      onClick={() => setSubmitted(false)}
-                    >
-                      Enviar otro mensaje
-                    </Button>
-                  </motion.div>
-                ) : (
-                  <motion.form
-                    key="form"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    onSubmit={handleSubmit}
-                    className="flex flex-col gap-5"
-                  >
-                    <div className="grid gap-5 sm:grid-cols-2">
-                      <Field label="Nombre" htmlFor="name">
-                        <input
-                          id="name"
-                          name="name"
-                          required
-                          placeholder="Tu nombre"
-                          className={fieldClass}
-                        />
-                      </Field>
-                      <Field label="Correo" htmlFor="email">
-                        <input
-                          id="email"
-                          name="email"
-                          type="email"
-                          required
-                          placeholder="tucorreo@email.com"
-                          className={fieldClass}
-                        />
-                      </Field>
-                    </div>
+            <div className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-7 sm:p-8">
+              <h3 className="text-xl font-semibold">Escríbeme directamente</h3>
+              <p className="text-sm leading-relaxed text-muted">
+                Elige el medio que te resulte más cómodo.
+              </p>
 
-                    <Field label="Tipo de proyecto" htmlFor="type">
-                      <select
-                        id="type"
-                        name="type"
-                        defaultValue=""
-                        required
-                        className={cn(fieldClass, "appearance-none")}
-                      >
-                        <option value="" disabled>
-                          Selecciona una opción
-                        </option>
-                        {PROJECT_TYPES.map((type) => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
+              {whatsappHref && (
+                <Button asChild size="lg" className="mt-2 w-full">
+                  <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle className="size-4" /> Escribir por WhatsApp
+                    <span className="sr-only"> (abre en una pestaña nueva)</span>
+                  </a>
+                </Button>
+              )}
 
-                    <Field label="Mensaje" htmlFor="message">
-                      <textarea
-                        id="message"
-                        name="message"
-                        required
-                        rows={4}
-                        placeholder="Cuéntanos sobre tu proyecto..."
-                        className={cn(fieldClass, "resize-none")}
-                      />
-                    </Field>
+              {emailHref && (
+                <Button
+                  asChild
+                  size="lg"
+                  variant={whatsappHref ? "secondary" : "primary"}
+                  className="w-full"
+                >
+                  <a href={emailHref}>
+                    <Mail className="size-4" /> Enviar un email
+                  </a>
+                </Button>
+              )}
 
-                    <Button type="submit" size="lg" className="mt-1 w-full">
-                      Enviar mensaje <ArrowRight className="size-4" />
-                    </Button>
-                  </motion.form>
-                )}
-              </AnimatePresence>
+              {site.contact.email && (
+                <p className="text-center text-sm text-muted-2">
+                  {site.contact.email}
+                </p>
+              )}
             </div>
           </Reveal>
         </div>
       </div>
     </section>
-  );
-}
-
-function Field({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label htmlFor={htmlFor} className="flex flex-col gap-2">
-      <span className="text-sm font-medium text-foreground/90">{label}</span>
-      {children}
-    </label>
   );
 }

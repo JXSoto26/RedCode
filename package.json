@@ -6,10 +6,21 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:dev": "vitest run --config vitest.dev.config.mts",
+    "quote:retry-emails": "tsx --conditions=react-server --env-file=.env.local scripts/retry-quote-emails.ts",
+    "db:target": "node --env-file=.env.local scripts/check-supabase-target.mjs",
+    "db:new": "supabase migration new",
+    "db:status": "npm run db:target && supabase migration list --linked",
+    "db:push:dry": "npm run db:target && supabase db push --linked --dry-run",
+    "db:push": "npm run db:target && supabase db push --linked"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.3.0",
+    "@supabase/supabase-js": "2.117.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.23.0",
@@ -17,16 +28,27 @@
     "next": "16.2.10",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "tailwind-merge": "^3.6.0"
+    "server-only": "0.0.1",
+    "tailwind-merge": "^3.6.0",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/node": "22.20.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "6.1.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "jsdom": "30.1.1",
+    "supabase": "2.121.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "4.23.15",
+    "typescript": "^5",
+    "vite": "8.3.1",
+    "vitest": "5.0.2"
   }
 }

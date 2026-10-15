@@ -1,44 +1,22 @@
-import {
-  Globe,
-  ShoppingCart,
-  MonitorSmartphone,
-  Code2,
-  Search,
-  LifeBuoy,
-} from "lucide-react";
+import { Globe, MonitorSmartphone, RefreshCw } from "lucide-react";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { RevealGroup, RevealItem } from "@/components/motion/reveal";
 
 const SERVICES = [
   {
     icon: Globe,
-    title: "Páginas Web",
-    desc: "Sitios web modernos y profesionales para presentar tu negocio con impacto.",
-  },
-  {
-    icon: ShoppingCart,
-    title: "Tiendas Online",
-    desc: "E-commerce seguros y optimizados para vender más y gestionar con facilidad.",
+    title: "Páginas web informativas",
+    desc: "Una página para presentar tu negocio, organización o trabajo: quién eres, qué ofreces y cómo comunicarse contigo.",
   },
   {
     icon: MonitorSmartphone,
-    title: "Landing Pages",
-    desc: "Páginas diseñadas para convertir visitantes en clientes reales.",
+    title: "Landing pages",
+    desc: "Una página enfocada en un solo servicio, producto o campaña, con la información necesaria y un paso claro para contactarte.",
   },
   {
-    icon: Code2,
-    title: "Desarrollo a Medida",
-    desc: "Soluciones personalizadas según las necesidades exactas de tu negocio.",
-  },
-  {
-    icon: Search,
-    title: "SEO & Posicionamiento",
-    desc: "Optimización técnica para que te encuentren en Google y crezcas orgánicamente.",
-  },
-  {
-    icon: LifeBuoy,
-    title: "Soporte & Mantenimiento",
-    desc: "Acompañamiento continuo para mantener tu web rápida, segura y actualizada.",
+    icon: RefreshCw,
+    title: "Rediseño de páginas web",
+    desc: "Si tu página actual se ve anticuada o es difícil de usar en el celular, la renuevo con un diseño más claro y actual.",
   },
 ];
 
@@ -47,9 +25,9 @@ export function Services() {
     <section id="servicios" className="relative py-24 md:py-32">
       <div className="container-page">
         <SectionHeading
-          eyebrow="Nuestros servicios"
-          title="Soluciones web para cada necesidad"
-          description="Desde una landing page hasta una plataforma a medida, cubrimos todo el ciclo de vida de tu presencia digital."
+          eyebrow="Servicios"
+          title="Páginas web hechas a la medida de tu negocio"
+          description="Cada página se diseña y desarrolla según lo que necesitas comunicar, para que tus clientes entiendan rápido qué ofreces."
         />
 
         <RevealGroup className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

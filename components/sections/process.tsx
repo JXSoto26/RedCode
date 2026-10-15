@@ -1,31 +1,31 @@
-import { Search, PenTool, Code, Rocket } from "lucide-react";
+import { MessagesSquare, FileText, PenTool, CheckCircle2 } from "lucide-react";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { RevealGroup, RevealItem } from "@/components/motion/reveal";
 
 const STEPS = [
   {
-    icon: Search,
+    icon: MessagesSquare,
     step: "01",
-    title: "Descubrimiento",
-    desc: "Analizamos tu negocio, tus objetivos y tu audiencia para definir la estrategia correcta.",
+    title: "Conversación inicial",
+    desc: "Me cuentas sobre tu negocio u organización, a quién quieres llegar y qué debe tener tu página.",
+  },
+  {
+    icon: FileText,
+    step: "02",
+    title: "Propuesta",
+    desc: "Preparo una cotización con el alcance del proyecto según lo que conversamos.",
   },
   {
     icon: PenTool,
-    step: "02",
-    title: "Diseño",
-    desc: "Creamos una interfaz moderna y a medida, centrada en la experiencia de tus clientes.",
-  },
-  {
-    icon: Code,
     step: "03",
-    title: "Desarrollo",
-    desc: "Construimos tu web con tecnología de punta: rápida, segura y escalable.",
+    title: "Diseño y desarrollo",
+    desc: "Diseño y construyo la página, y te muestro el avance para que puedas darme tus comentarios.",
   },
   {
-    icon: Rocket,
+    icon: CheckCircle2,
     step: "04",
-    title: "Lanzamiento",
-    desc: "Publicamos, optimizamos y te acompañamos para que tu proyecto siga creciendo.",
+    title: "Revisión y entrega",
+    desc: "Revisamos juntos la página en celular y computadora antes de darla por terminada.",
   },
 ];
 
@@ -34,9 +34,9 @@ export function Process() {
     <section id="proceso" className="relative py-24 md:py-32">
       <div className="container-page">
         <SectionHeading
-          eyebrow="Proceso de trabajo"
-          title="Cómo damos vida a tu proyecto"
-          description="Un método claro y transparente en cuatro etapas, de la idea al lanzamiento."
+          eyebrow="Cómo trabajo"
+          title="Un proceso sencillo, de principio a fin"
+          description="Trabajas directamente conmigo en cada etapa, sin intermediarios."
         />
 
         <RevealGroup className="relative mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">

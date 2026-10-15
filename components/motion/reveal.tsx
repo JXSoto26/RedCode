@@ -32,6 +32,7 @@ export function Reveal({
 }: RevealProps) {
   return (
     <motion.div
+      data-reveal
       className={className}
       initial="hidden"
       whileInView="visible"
@@ -54,6 +55,7 @@ export function RevealGroup({
 }: MotionSafeProps & { stagger?: number }) {
   return (
     <motion.div
+      data-reveal
       className={className}
       initial="hidden"
       whileInView="visible"
@@ -76,7 +78,8 @@ export function RevealItem({
   ...props
 }: MotionSafeProps) {
   return (
-    <motion.div className={className} variants={variants} {...props}>
+    <motion.div
+      data-reveal className={className} variants={variants} {...props}>
       {children}
     </motion.div>
   );
