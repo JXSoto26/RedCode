@@ -33,6 +33,9 @@ async function main() {
   if (ref !== DEV_PROJECT_REF) {
     const prodRef = process.env.SUPABASE_PROD_PROJECT_REF?.trim();
     const confirm = process.argv.find((a) => a.startsWith("--confirm-prod="))?.split("=")[1];
+    if (process.env.REDCODE_ENV_FILE !== "prod") {
+      throw new Error("Destino no-DEV sin .env.prod.local: usa npm run quote:retry-emails:prod.");
+    }
     if (!prodRef || ref !== prodRef || confirm !== prodRef) {
       throw new Error(`Destino ${ref} no autorizado: para PROD usa SUPABASE_PROD_PROJECT_REF y --confirm-prod=<ref>.`);
     }

@@ -22,6 +22,8 @@ import { DEV_PROJECT_REF } from "../lib/deployment";
 const PROD_NAME = "redcode-prod";
 const ROOT = process.cwd();
 const WORKDIR = join(ROOT, ".supabase-prod");
+// Relative to ROOT (the CLI runs there): no spaces from the user's home path.
+const CLI_WORKDIR = ".supabase-prod";
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -34,7 +36,9 @@ function fail(message: string): never {
 }
 
 function supabase(cliArgs: string[], opts: { capture?: boolean } = {}) {
-  const r = spawnSync("npx", ["supabase", ...cliArgs], {
+  // shell: true (npx on Windows) splits on spaces: quote any argument that has them.
+  const quoted = cliArgs.map((a) => (/\s/.test(a) ? `"${a}"` : a));
+  const r = spawnSync("npx", ["supabase", ...quoted], {
     cwd: ROOT,
     shell: true,
     encoding: "utf8",
@@ -45,6 +49,9 @@ function supabase(cliArgs: string[], opts: { capture?: boolean } = {}) {
 }
 
 function checkTarget(): string {
+  if (process.env.REDCODE_ENV_FILE !== "prod") {
+    fail("No se cargó .env.prod.local. Usa npm run prod:db (carga --env-file=.env.prod.local).");
+  }
   if (!["check", "status", "migrate"].includes(command)) fail("Comando: check | status | migrate");
   if (!ref || !/^[a-z]{20}$/.test(ref)) fail("Indica --ref=<ref de 20 letras del proyecto PROD>.");
   if (ref === DEV_PROJECT_REF) fail("Esa referencia es el proyecto DEV.");
@@ -75,7 +82,7 @@ function prepareWorkdir(target: string) {
 
   const linked = join(dir, ".temp", "project-ref");
   const current = existsSync(linked) ? readFileSync(linked, "utf8").trim() : null;
-  if (current !== target) supabase(["link", "--project-ref", target, "--workdir", WORKDIR]);
+  if (current !== target) supabase(["link", "--project-ref", target, "--workdir", CLI_WORKDIR]);
   const after = readFileSync(linked, "utf8").trim();
   if (after !== target) fail(`El workdir PROD quedó vinculado a ${after}, no a ${target}.`);
 
@@ -92,17 +99,17 @@ if (command === "check") process.exit(0);
 prepareWorkdir(target);
 
 if (command === "status") {
-  supabase(["migration", "list", "--linked", "--workdir", WORKDIR]);
+  supabase(["migration", "list", "--linked", "--workdir", CLI_WORKDIR]);
   process.exit(0);
 }
 
 // migrate
-supabase(["db", "push", "--linked", "--dry-run", "--workdir", WORKDIR]);
+supabase(["db", "push", "--linked", "--dry-run", "--workdir", CLI_WORKDIR]);
 if (!args.includes("--apply")) {
   console.log("Dry run: no se aplicó nada. Para aplicar, repite con --apply --confirm=<ref>.");
   process.exit(0);
 }
 if (flag("confirm") !== target) fail("Para aplicar, --confirm debe repetir exactamente la referencia PROD.");
-supabase(["db", "push", "--linked", "--workdir", WORKDIR, "--yes"]);
-supabase(["migration", "list", "--linked", "--workdir", WORKDIR]);
+supabase(["db", "push", "--linked", "--workdir", CLI_WORKDIR, "--yes"]);
+supabase(["migration", "list", "--linked", "--workdir", CLI_WORKDIR]);
 console.log("✓ Migraciones aplicadas en PROD. Ejecuta ahora: npm run prod:verify");
