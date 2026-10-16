@@ -237,6 +237,7 @@ La migración inicial crea `quote_requests` y `quote_rate_limits` con RLS activa
 - `npm run test:db`: ejecuta contra DEV, con los roles reales (`anon`, usuario sin permiso, administrador y `service_role`), dos archivos SQL. Todo ocurre dentro de transacciones que se revierten: no deja datos ni envía emails.
   - [supabase/tests/admin_access.sql](supabase/tests/admin_access.sql): permisos, cambio de estado con historial atómico, conflicto entre pestañas, notas y borradores.
   - [supabase/tests/quote_sending.sql](supabase/tests/quote_sending.sql): finalizar (incompleto, versión vieja, doble clic, revisiones), inmutabilidad, PDF único, envío idempotente, regla de estado, conciliación, ventana de 23 h, almacenamiento privado y borrar a un administrador.
+  - [supabase/tests/retention.sql](supabase/tests/retention.sql): qué acciones cuentan como actividad y cuáles no, límite exacto de 12 meses, exclusiones, permisos (ningún rol de la API puede revisar ni borrar), bloqueo durante el borrado, reanudación, recuentos, inmutabilidad fuera del borrado y eliminación a petición del titular.
 - **PDF:** `npm test` genera PDFs reales (cortos y de varias páginas). Para revisarlos a ojo, genera uno con `renderQuotePdf` y ábrelo.
 - **Formulario completo (manual):** con `npm run dev`, envía una solicitud desde `/cotizar` usando como email del visitante una dirección de `QUOTE_EMAIL_ALLOWLIST`. Comprueba en `quote_requests` que la fila existe con `status = nueva` y los dos `*_email_status = enviado`. `enviado` significa que Resend **aceptó** el email, no que se haya entregado; la entrega se confirma en el panel de Resend (**Emails**) o en el buzón.
 
@@ -275,6 +276,63 @@ Orden recomendado antes de subir cambios: `npm run lint`, `npm run typecheck`, `
 - Los registros de la app guardan solo referencias y códigos de error, nunca datos personales ni mensajes del proveedor.
 - Si un secreto se filtra, rótalo en el panel del servicio y actualízalo en `.env.local` y en Vercel.
 
+## Privacidad y conservación
+
+El texto propuesto está en [app/privacidad/page.tsx](app/privacidad/page.tsx). Sigue en **borrador** ([lib/privacy.ts](lib/privacy.ts)): `privacyPolicyFinal()` exige `status = "vigente"`, fecha de entrada en vigor y que `PRIVACY_PENDING` esté vacío. Cada pendiente aparece en la página junto al párrafo al que afecta.
+
+### Reglas de conservación (decisión operativa)
+
+| Expediente | Regla |
+| --- | --- |
+| Prospecto (no contratado) | Se elimina entero tras 12 meses sin actividad comercial documentada, en la revisión mensual siguiente. |
+| Cliente activo | Se conserva mientras haya proyecto, mantenimiento o soporte. Nunca entra en la limpieza. |
+| Relación cerrada | Revisión manual: borrar lo innecesario y conservar lo contractual/contable. No se borra solo. |
+| Documentos contractuales y contables | Plazo pendiente con el contador. No se borran automáticamente. |
+
+**Actividad comercial** (reinicia los 12 meses, columna `last_activity_at`): solicitud recibida, cambio de estado, nota, borrador guardado (solo si cambia la versión), cotización finalizada, envío **aceptado** por Resend y cambio de relación. **No cuentan:** abrir o leer, reintentos técnicos, envíos fallidos o inciertos, tareas automáticas y marcar una conservación.
+
+**Nunca son candidatos:** relación `cliente_activo` o `cerrado`, conservación documentada (`retention_hold`, con motivo), envíos pendientes, en proceso o inciertos, estado `aceptada` con relación `prospecto` (hay que revisar la relación) y lo que tenga actividad reciente. El estado comercial no se usa como prueba de una obligación legal: para eso está la conservación documentada.
+
+En el panel, cada solicitud tiene la sección **Relación y conservación**: relación comercial, última actividad, fecha desde la que sería candidata y conservación documentada con motivo.
+
+### Revisión mensual (manual)
+
+No hay tareas programadas. Una vez al mes:
+
+1. Simulación en PROD (no escribe nada; muestra referencia, última actividad, relación, estado, decisión y motivos, sin nombres ni emails):
+   ```bash
+   npm run retention:prod -- plan
+   ```
+2. Revisa las candidatas. Si alguna debe conservarse, márcala en el panel (relación o conservación documentada) y repite la simulación. Revisa también la lista de "relaciones cerradas pendientes de revisión manual".
+3. Ejecución real (borra). Exige el entorno y repetir la referencia del proyecto:
+   ```bash
+   npm run retention:prod -- execute --env=prod --confirm=<ref-prod>
+   ```
+   Cada expediente se vuelve a comprobar con la fila bloqueada justo antes de borrarlo. Mientras se borra, el panel no puede añadirle datos. Se borran, en este orden: los PDFs (Storage API, comprobando que ya no existen), los envíos, las revisiones y sus partidas, los borradores, las notas, el historial y la solicitud.
+4. Si se interrumpe, ejecuta el mismo comando otra vez: primero termina los trabajos abiertos (`private.retention_jobs`, estado `en_curso`).
+5. Busca en Gmail (`redcodepr@gmail.com`) las referencias borradas (`RC-…`) y el email del cliente; borra los mensajes y adjuntos que no haya que conservar y vacía la papelera (si no, Gmail los borra a los 30 días). Lo que el cliente u otros recibieron queda fuera de tu control.
+
+Opciones: `--as-of=AAAA-MM-DD` (fecha de corte; al ejecutar no puede ser futura) y `--only=<id>` (una sola solicitud). En DEV: `npm run retention -- plan` / `execute --env=dev --confirm=<ref-dev>`. La herramienta necesita la CLI vinculada (DEV: `npm run db:target`; PROD: `npm run prod:db -- status --ref=<ref>`) y `SUPABASE_SECRET_KEY` para borrar PDFs.
+
+**Registro mínimo:** `private.retention_jobs` guarda el id interno de la solicitud, la fecha y los recuentos; no guarda nombres, emails ni contenido. El id es un identificador interno (seudónimo), no un dato anónimo.
+
+**Copias de seguridad:** si alguna vez se restaura una copia de la base de PROD, antes de reabrir el formulario o el panel vuelve a borrar los expedientes ya eliminados: `select request_id from private.retention_jobs where status = 'completado'` da los ids; cada uno se borra con `--only=<id>` tras marcarlo elegible (o con una migración revisada). Los PDFs no están en las copias de la base. Dependiendo del plan de Supabase, las copias caducan solas (Free: no hay; Pro: 7 días; Team: 14).
+
+### Solicitudes sobre datos personales (manual)
+
+Llegan a `redcodepr@gmail.com`. No hay formulario ni respuestas automáticas.
+
+1. **Registrar:** en una hoja privada, fecha de llegada, tipo (acceso, corrección, eliminación, otra) y referencia `RC-…` si la hay. No copies el contenido de la solicitud.
+2. **Acusar recibo** en 5 días laborables.
+3. **Verificar identidad** de forma razonable: normalmente basta con que escriba desde el email de la solicitud. Si escribe desde otro, responde al email original para confirmar. No pidas documentos salvo que no haya otra forma.
+4. **Localizar:** busca en el panel por nombre, negocio o referencia; en Gmail por email y referencia.
+5. **Evaluar y responder** en 30 días naturales desde la verificación (o el plazo legal si es menor):
+   - Acceso: envía un resumen de los datos de la solicitud y lo generado (sin notas internas que afecten a terceros).
+   - Corrección: anótala como nota interna y corrige lo necesario en la propuesta siguiente; los datos del formulario y las revisiones finalizadas no se editan desde el panel.
+   - Eliminación: comprueba primero con `npm run retention:prod -- erase --only=<id>` (no escribe). No aplica la regla de 12 meses y una relación cerrada no la bloquea (ejecutarlo es la revisión manual), pero sigue rechazando: cliente activo, conservación documentada, envío pendiente o incierto y estado `aceptada` sin relación revisada. Si hay que conservar algo contractual o contable, no borres: responde explicando qué se conserva y por qué. Si procede, `npm run retention:prod -- erase --only=<id> --env=prod --confirm=<ref-prod>` borra el expediente entero (incluidos PDFs) y deja en `private.retention_jobs` el motivo `solicitud_titular`. Después, Gmail (paso 5 de la revisión mensual). No hay botón de borrar en el panel.
+   - Si no se puede atender (en todo o en parte), explica el motivo y qué se conserva.
+6. **Registro mínimo:** fecha de respuesta y resultado. No guardes copias de documentos de identidad.
+
 ## Lanzamiento
 
 **Estado: pendiente.** El código está preparado, pero el formulario no se habilitará en Production hasta que se cumpla todo lo de "Bloqueantes". Cada punto está protegido en el código: si falta algo, el formulario se desactiva, no se abre.
@@ -283,7 +341,8 @@ Orden recomendado antes de subir cambios: `npm run lint`, `npm run typecheck`, `
 
 | Pendiente | Responsable | Comprobado por |
 | --- | --- | --- |
-| Política de privacidad definitiva (decisiones de conservación y eliminación) y `PRIVACY_POLICY` = `vigente` en [lib/privacy.ts](lib/privacy.ts) | Jeremy (decisiones), luego código | `isQuoteSubmissionEnabled()` no habilita el formulario en Production con la política en borrador |
+| Aprobar el texto de [/privacidad](app/privacidad/page.tsx), resolver `PRIVACY_PENDING` y poner `PRIVACY_POLICY` = `vigente` con la fecha de lanzamiento en [lib/privacy.ts](lib/privacy.ts) | Jeremy (aprobación y datos), luego código | `privacyPolicyFinal()` exige estado, fecha y cero pendientes; sin eso el formulario no se habilita en Production |
+| Aplicar en PROD las migraciones de retención (`20261016144100`, `20261016144627`, `20261016150951`) | Jeremy autoriza; `npm run prod:db` | `npm run prod:db -- status` |
 | Confirmar `redcode-prod` (`ylzygfcvycbwmcyzmefy`) como PROD y aplicar migraciones | Jeremy confirma; aplicación con `npm run prod:db` | `npm run prod:verify` |
 | Registro público desactivado en PROD y administrador PROD creado | Jeremy (panel de Supabase) | `npm run prod:verify` (registro) |
 | Widget de Turnstile de Production y sus variables en Vercel Production | Jeremy | La guarda rechaza claves de prueba; sin claves el formulario no se habilita |
@@ -383,7 +442,7 @@ Solo en el entorno **Production**, con valores **propios de PROD**. Nada de DEV.
 - **Cerrar el formulario sin desplegar código:** quita `TURNSTILE_SECRET_KEY` o `SUPABASE_URL` de Production y vuelve a desplegar. El formulario se desactiva solo.
 - **Emails:** vuelve a `QUOTE_EMAIL_DELIVERY=allowlist` y vuelve a desplegar.
 - **Base de datos:**
-  - Las migraciones solo añaden: no borran ni modifican datos existentes.
+  - Las migraciones no borran datos al aplicarse. Solo añaden tablas, columnas y funciones; la de retención además calcula `last_activity_at` de las solicitudes existentes (todas quedan como `prospecto`). Las funciones de borrado solo actúan cuando se ejecuta `npm run retention:prod -- execute` o `erase`.
   - No hay "rollback" destructivo. Un problema de esquema se corrige con una migración nueva, revisada y probada primero en DEV.
   - El código anterior (`942f032`) no usa la base, así que revertir el código es compatible con el esquema nuevo.
 - **Dominio:** borra o cambia los registros `A`/`CNAME` de la raíz y de `www` en Cloudflare. No toques los de Resend.

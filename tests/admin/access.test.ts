@@ -24,7 +24,15 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-import { addNote, changeStatus, login, saveDraft, type DraftState } from "@/lib/admin/actions";
+import {
+  addNote,
+  changeRelationship,
+  changeStatus,
+  login,
+  saveDraft,
+  setRetentionHold,
+  type DraftState,
+} from "@/lib/admin/actions";
 import { getRequestDetail, listRequests, sanitizeSearch } from "@/lib/admin/data";
 
 const ADMIN_ID = "00000000-0000-4000-8000-0000000000a1";
@@ -106,11 +114,14 @@ const draftForm = (items: unknown[] = []) =>
   });
 
 const idle = { ok: false, message: null };
+const relationshipForm = () => form({ requestId: REQUEST_ID, expected: "prospecto", relationship: "cliente_activo" });
 
 const protectedCalls: [string, () => Promise<unknown>][] = [
   ["changeStatus", () => changeStatus(idle, statusForm())],
   ["addNote", () => addNote(idle, form({ requestId: REQUEST_ID, body: "nota" }))],
   ["saveDraft", () => saveDraft(draftState, draftForm())],
+  ["changeRelationship", () => changeRelationship(idle, relationshipForm())],
+  ["setRetentionHold", () => setRetentionHold(idle, form({ requestId: REQUEST_ID, hold: "on", reason: "Disputa" }))],
   ["listRequests", () => listRequests({ q: "", status: null, page: 1 })],
   ["getRequestDetail", () => getRequestDetail(REQUEST_ID)],
 ];
@@ -211,6 +222,45 @@ describe("as admin", () => {
     );
     expect(fake.filters).toContainEqual(["quote_requests", "eq", "status", "nueva"]);
     expect(fake.filters).toContainEqual(["quote_requests", "range", 20, 39]);
+  });
+
+  it("changes the relationship through the atomic function with the expected value", async () => {
+    const r = await changeRelationship(idle, relationshipForm());
+    expect(r).toEqual({ ok: true, message: "Relación actualizada." });
+    expect(fake.rpc).toHaveBeenCalledExactlyOnceWith("admin_set_relationship", {
+      p_request_id: REQUEST_ID,
+      p_expected: "prospecto",
+      p_new: "cliente_activo",
+    });
+    expect(fake.reads).toEqual(["admin_users"]);
+  });
+
+  it("requires a reason to keep a file and sends none when clearing it", async () => {
+    expect((await setRetentionHold(idle, form({ requestId: REQUEST_ID, hold: "on", reason: " " }))).ok).toBe(false);
+    expect((await setRetentionHold(idle, form({ requestId: REQUEST_ID, hold: "maybe" }))).ok).toBe(false);
+    expect((await changeRelationship(idle, form({ requestId: REQUEST_ID, expected: "prospecto", relationship: "borrar" }))).ok).toBe(false);
+    expect(fake.rpc).not.toHaveBeenCalled();
+
+    await setRetentionHold(idle, form({ requestId: REQUEST_ID, hold: "on", reason: "  Reclamación abierta  " }));
+    expect(fake.rpc).toHaveBeenLastCalledWith("admin_set_retention_hold", {
+      p_request_id: REQUEST_ID,
+      p_hold: true,
+      p_reason: "Reclamación abierta",
+    });
+    await setRetentionHold(idle, form({ requestId: REQUEST_ID, hold: "off", reason: "ignored" }));
+    expect(fake.rpc).toHaveBeenLastCalledWith("admin_set_retention_hold", {
+      p_request_id: REQUEST_ID,
+      p_hold: false,
+      p_reason: null,
+    });
+  });
+
+  it("reports a relationship changed elsewhere or a file being deleted", async () => {
+    fake = fakeClient({ sub: ADMIN_ID, isAdmin: true, rpc: { data: null, error: { code: "RC409" } } });
+    state.client = fake.client;
+    const r = await changeRelationship(idle, relationshipForm());
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/otra pestaña/);
   });
 
   it("returns null for malformed ids without querying", async () => {

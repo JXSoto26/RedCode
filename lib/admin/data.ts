@@ -4,7 +4,7 @@ import { fromRow } from "@/lib/quote/supabase-repository";
 import type { QuoteRequestData } from "@/lib/quote/schema";
 import { requireAdmin } from "./auth";
 import type { StoredDraft } from "./draft";
-import { isRequestStatus, type RequestStatus } from "./labels";
+import { isRelationship, isRequestStatus, type Relationship, type RequestStatus } from "./labels";
 import { decimalToHundredths } from "./money";
 
 /**
@@ -120,6 +120,16 @@ export type RequestDetail = {
   history: { id: number; from: RequestStatus; to: RequestStatus; by: string; at: string }[];
   notes: { id: number; body: string; by: string; at: string }[];
   draft: StoredDraft | null;
+  retention: {
+    relationship: Relationship;
+    relationshipChangedAt: string | null;
+    lastActivityAt: string;
+    lastActivityKind: string;
+    hold: boolean;
+    holdReason: string | null;
+    holdSetAt: string | null;
+    deletionPendingAt: string | null;
+  };
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -186,6 +196,16 @@ export async function getRequestDetail(id: string): Promise<RequestDetail | null
     })),
     notes: (notes.data ?? []).map((n) => ({ id: n.id, body: n.body, by: n.created_by_email, at: n.created_at })),
     draft: draft.data ? toStoredDraft(draft.data) : null,
+    retention: {
+      relationship: isRelationship(r.relationship) ? r.relationship : "prospecto",
+      relationshipChangedAt: r.relationship_changed_at ?? null,
+      lastActivityAt: r.last_activity_at,
+      lastActivityKind: r.last_activity_kind,
+      hold: Boolean(r.retention_hold),
+      holdReason: r.retention_hold_reason ?? null,
+      holdSetAt: r.retention_hold_set_at ?? null,
+      deletionPendingAt: r.deletion_pending_at ?? null,
+    },
   };
 }
 

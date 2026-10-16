@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { REQUEST_STATUSES } from "@/lib/quote/options";
+import { RELATIONSHIPS } from "./labels";
 import { requireAdmin } from "./auth";
 import { parseDraftSave } from "./draft";
 import { computeTotals, decimalToHundredths } from "./money";
@@ -197,4 +198,66 @@ export async function saveDraft(prev: DraftState, formData: FormData): Promise<D
     totalCents: totals.totalCents,
     incomplete: totals.incomplete,
   };
+}
+
+// --- Relationship and retention ----------------------------------------------------
+
+const relationshipSchema = z.object({
+  requestId: z.uuid(),
+  expected: z.enum(RELATIONSHIPS),
+  relationship: z.enum(RELATIONSHIPS),
+});
+
+/**
+ * Records whether the request became a client or the relationship ended.
+ * Counts as documented commercial activity. Deletes nothing.
+ */
+export async function changeRelationship(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { supabase } = await requireAdmin();
+  const parsed = relationshipSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: "Elige una relación válida." };
+  const { requestId, expected, relationship } = parsed.data;
+  if (expected === relationship) return { ok: true, message: "La relación no cambió." };
+
+  const { error } = await supabase.rpc("admin_set_relationship", {
+    p_request_id: requestId,
+    p_expected: expected,
+    p_new: relationship,
+  });
+  if (error) {
+    return { ok: false, message: rpcMessage(error, "La relación cambió en otra pestaña o el expediente se está eliminando. Recarga la página.") };
+  }
+
+  revalidatePath(detailPath(requestId));
+  return { ok: true, message: "Relación actualizada." };
+}
+
+const holdSchema = z.discriminatedUnion("hold", [
+  z.object({
+    requestId: z.uuid(),
+    hold: z.literal("on"),
+    reason: z.string().trim().min(3, "Describe el motivo (mínimo 3 caracteres).").max(300, "Máximo 300 caracteres."),
+  }),
+  z.object({ requestId: z.uuid(), hold: z.literal("off") }),
+]);
+
+/**
+ * Marks (or clears) a documented reason to keep the file, such as a dispute or
+ * a legal obligation. It is not commercial activity: the 12 months still count.
+ */
+export async function setRetentionHold(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { supabase } = await requireAdmin();
+  const parsed = holdSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Datos no válidos." };
+  const on = parsed.data.hold === "on";
+
+  const { error } = await supabase.rpc("admin_set_retention_hold", {
+    p_request_id: parsed.data.requestId,
+    p_hold: on,
+    p_reason: parsed.data.hold === "on" ? parsed.data.reason : null,
+  });
+  if (error) return { ok: false, message: rpcMessage(error, "El expediente se está eliminando. Recarga la página.") };
+
+  revalidatePath(detailPath(parsed.data.requestId));
+  return { ok: true, message: on ? "Conservación documentada guardada." : "Conservación retirada." };
 }

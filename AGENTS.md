@@ -55,6 +55,14 @@ El flujo completo está en el README (secciones "Supabase DEV", "Pruebas", "Ento
 - Nunca ejecutes `test:dev`, `test:db`, fixtures, usuarios temporales ni scripts de envío contra PROD. `prod:verify` es solo de lectura.
 - No copies datos de DEV a PROD.
 
+## Privacidad y conservación
+- La política (`lib/privacy.ts`) sigue en `borrador`. No la marques `vigente`, no fijes `effectiveDate` ni vacíes `PRIVACY_PENDING` sin que Jeremy apruebe el texto y confirme cada pendiente.
+- `npm run retention` / `retention:prod` solo en modo simulación (`plan`, o `erase --only=<id>` sin `--env`/`--confirm`) salvo orden explícita. **Nunca** ejecutes `execute` ni `erase` real sobre datos reales; en DEV solo sobre fixtures de prueba identificados.
+- No programes la revisión mensual (cron, Vercel Cron, pg_cron): es manual.
+- La eliminación solo pasa por `private.retention_begin`/`erasure_begin` + `retention_finish` (propietario, CLI). No concedas permisos sobre ellas a ningún rol de la API ni añadas un botón de borrar al panel.
+- "Sin actividad" se mide con `last_activity_at`: lecturas, reintentos, envíos fallidos/inciertos, tareas automáticas y la conservación documentada no lo reinician. No cambies eso sin decisión explícita.
+- No llames "anonimización" a conservar el id interno ni "eliminación completa" a algo que deja copias (backups, Resend, Gmail, buzones de terceros).
+
 ## Turnstile y guardas de entorno
 - Production exige Turnstile con claves reales y `TURNSTILE_EXPECTED_HOSTNAMES`; las claves de prueba de Cloudflare solo se usan en pruebas, local y Preview.
 - No debilites `lib/deployment.ts` ni la quites de `next.config.ts` / `instrumentation.ts`: Production nunca puede apuntar a DEV, ni Preview o local a otro proyecto que no sea DEV.

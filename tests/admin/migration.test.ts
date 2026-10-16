@@ -101,8 +101,12 @@ describe("admin panel migration", () => {
     expect(sql).toContain(`p_new_status not in (${list})`);
   });
 
-  it("never deletes, drops or truncates quote requests in any migration", () => {
-    expect(allSql).not.toMatch(/delete from public\.quote_requests|drop table|truncate/);
+  it("never drops or truncates, and deletes rows only in the owner-only retention function", () => {
+    expect(allSql).not.toMatch(/drop table|truncate/);
+    const withoutFinish = allSql.replace(/create function private\.retention_finish\([\s\S]*?\$\$;/g, "");
+    // Elsewhere only draft items (replaced on save) and expired rate-limit rows are deleted.
+    const deletes = [...withoutFinish.matchAll(/delete from public\.(\w+)/g)].map((m) => m[1]);
+    expect([...new Set(deletes)].sort()).toEqual(["quote_draft_items", "quote_rate_limits"]);
   });
 });
 
@@ -185,5 +189,76 @@ describe("sender and Reply-To migration", () => {
     );
     expect(sql).toContain("drop function public.admin_begin_quote_send(uuid, uuid, text, text, text);");
     expect(sql).not.toMatch(/grant [^;]* to (anon|public|service_role)\b/);
+  });
+});
+
+describe("retention migrations", () => {
+  const sql = readdirSync(dir)
+    .filter((f) => /_retention(_|\.)/.test(f))
+    .map((f) => readFileSync(join(dir, f), "utf8"))
+    .join("\n")
+    .toLowerCase();
+  const fn = (schema: string, name: string) => {
+    const m = new RegExp(`create (?:or replace )?function ${schema}\\.${name}\\([\\s\\S]*?\\$\\$([\\s\\S]*?)\\$\\$;`).exec(sql);
+    if (!m) throw new Error(`function ${schema}.${name} not found`);
+    return { full: m[0], body: m[1] };
+  };
+
+  it("keeps deletion out of reach of the API: owner-only private functions, no grants", () => {
+    for (const name of ["retention_review", "retention_begin", "retention_finish", "erasure_begin"]) {
+      expect(sql).toMatch(new RegExp(`revoke all on function private\\.${name}\\([^)]*\\) from public, anon, authenticated, service_role`));
+      expect(sql).not.toMatch(new RegExp(`grant [^;]* on function private\\.${name}`));
+      // Runs with the caller's rights: only the database owner (CLI) has them.
+      expect(fn("private", name).full).not.toContain("security definer");
+    }
+    expect(sql).toContain("revoke all on table private.retention_jobs from public, anon, authenticated, service_role");
+    expect(sql).not.toMatch(/grant (insert|update|delete|all)/);
+    expect(sql).not.toMatch(/grant [^;]* to (anon|public|service_role)\b/);
+  });
+
+  it("admin functions check the admin first and only change relationship or hold", () => {
+    for (const name of ["admin_set_relationship", "admin_set_retention_hold"]) {
+      const { full, body } = fn("public", name);
+      expect(full).toContain("security definer");
+      expect(full).toContain("set search_path = ''");
+      expect(body.slice(body.search(/^begin$/m))).toMatch(/^begin\s+if not private\.is_admin\(\) then\s+raise exception 'forbidden'/);
+      expect(body).not.toContain("delete from");
+    }
+    // A hold is not commercial activity; a relationship change is.
+    expect(fn("public", "admin_set_retention_hold").body).not.toContain("last_activity_at");
+    expect(fn("public", "admin_set_relationship").body).toContain("last_activity_kind = 'cambio_relacion'");
+  });
+
+  it("uses 12 months without documented activity and the agreed exclusions", () => {
+    const review = fn("private", "retention_review").body;
+    expect(review).toContain("interval '12 months'");
+    for (const reason of [
+      "excluida:cliente_activo",
+      "excluida:relacion_cerrada_revision_manual",
+      "excluida:conservacion_documentada",
+      "excluida:envio_pendiente_o_incierto",
+      "excluida:actividad_en_ultimos_12_meses",
+    ]) {
+      expect(review).toContain(reason);
+    }
+  });
+
+  it("lets immutable quotes be deleted only inside a retention job for that file", () => {
+    expect(fn("private", "retention_context").body).toContain("current_setting('redcode.retention_request', true)");
+    expect(fn("private", "retention_finish").body).toContain("set_config('redcode.retention_request', v_job.request_id::text, true)");
+  });
+
+  it("erasure on request skips only the 12-month rule and the closed-relationship review", () => {
+    const body = fn("private", "erasure_begin").body;
+    expect(body).toContain("for update");
+    expect(body).toContain("x not in ('excluida:actividad_en_ultimos_12_meses', 'excluida:relacion_cerrada_revision_manual')");
+    expect(body).toContain("'solicitud_titular'");
+  });
+
+  it("re-checks eligibility under a row lock before marking a file for deletion", () => {
+    const begin = fn("private", "retention_begin").body;
+    expect(begin).toContain("for update");
+    expect(begin).toContain("private.retention_review(p_as_of)");
+    expect(begin).toContain("not_eligible");
   });
 });

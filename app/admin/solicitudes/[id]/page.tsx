@@ -6,6 +6,7 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { DraftEditor } from "@/components/admin/draft-editor";
 import { NoteForm } from "@/components/admin/note-form";
 import { FinalizeForm } from "@/components/admin/quote-forms";
+import { RelationshipForm, RetentionHoldForm } from "@/components/admin/retention-forms";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { StatusForm } from "@/components/admin/status-form";
 import { Button } from "@/components/ui/button";
@@ -13,10 +14,13 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { getRequestDetail } from "@/lib/admin/data";
 import { pendingFields, toEditorItems } from "@/lib/admin/draft";
 import {
+  ACTIVITY_LABELS,
   STATUS_LABELS,
   describeEmailStatus,
+  formatDate,
   formatDateTime,
   mailtoLink,
+  retentionDueDate,
   whatsappLink,
 } from "@/lib/admin/labels";
 import { computeTotals, formatCents } from "@/lib/admin/money";
@@ -60,6 +64,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const problems = finalizeProblems(draft);
   const alreadyFinalized = draft ? quotes.find((q) => q.draftVersion === draft.version) : undefined;
   const nextRevision = (quotes[0]?.revision ?? 0) + 1;
+  const retention = request.retention;
 
   return (
     <AdminShell email={admin.email}>
@@ -81,6 +86,13 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
         </div>
         <StatusBadge status={request.status} className="px-3 py-1 text-sm" />
       </div>
+
+      {retention.deletionPendingAt && (
+        <p className="mt-5 rounded-xl border border-brand-600/40 bg-brand-600/10 p-4 text-sm text-brand-200">
+          Este expediente se está eliminando desde la revisión de retención (iniciada el{" "}
+          {formatDateTime(retention.deletionPendingAt)}). No se pueden añadir datos.
+        </p>
+      )}
 
       {(mail || whatsapp) && (
         <div className="mt-5 flex flex-wrap gap-2">
@@ -223,6 +235,41 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                 ))}
               </ol>
             )}
+          </Section>
+
+          <Section title="Relación y conservación">
+            <RelationshipForm requestId={request.id} current={retention.relationship} />
+            <dl className="mt-5 flex flex-col gap-2 text-sm">
+              <div>
+                <dt className="text-xs text-muted-2">Última actividad comercial</dt>
+                <dd>
+                  {formatDateTime(retention.lastActivityAt)} ·{" "}
+                  {ACTIVITY_LABELS[retention.lastActivityKind] ?? retention.lastActivityKind}
+                </dd>
+              </div>
+              {retention.relationship === "prospecto" && !retention.hold && (
+                <div>
+                  <dt className="text-xs text-muted-2">Candidata a eliminación desde</dt>
+                  <dd>{formatDate(retentionDueDate(retention.lastActivityAt))}, si no hay actividad antes</dd>
+                </div>
+              )}
+              {retention.hold && (
+                <div>
+                  <dt className="text-xs text-muted-2">
+                    Conservación documentada
+                    {retention.holdSetAt && ` (desde el ${formatDate(retention.holdSetAt)})`}
+                  </dt>
+                  <dd className="whitespace-pre-wrap break-words">{retention.holdReason}</dd>
+                </div>
+              )}
+            </dl>
+            <p className="mt-3 text-xs text-muted-2">
+              Abrir o leer el expediente no cuenta como actividad. Cuentan: cambios de estado, notas, borradores,
+              cotizaciones finalizadas, envíos aceptados por Resend y cambios de relación.
+            </p>
+            <div className="mt-5 border-t border-border pt-5">
+              <RetentionHoldForm requestId={request.id} hold={retention.hold} />
+            </div>
           </Section>
 
           <Section title="Emails automáticos">

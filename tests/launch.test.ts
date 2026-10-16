@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
-import { PRIVACY_POLICY, privacyPolicyFinal } from "@/lib/privacy";
+import { PRIVACY_PENDING, PRIVACY_POLICY, privacyPolicyFinal } from "@/lib/privacy";
 import { site } from "@/lib/site";
 import nextConfig from "../next.config";
 
@@ -32,6 +32,21 @@ describe("launch readiness", () => {
     expect(page.metadata.robots).toEqual({ index: false, follow: true });
     expect(page.metadata.alternates).toEqual({ canonical: "/privacidad" });
   }, 60_000); // importing the page loads the whole component tree
+
+  it("cannot become final while something in the text is unconfirmed", () => {
+    expect(Object.keys(PRIVACY_PENDING).length).toBeGreaterThan(0);
+    expect(privacyPolicyFinal()).toBe(false);
+    // Every pending item is shown next to the paragraph it affects.
+    const page = readFileSync("app/privacidad/page.tsx", "utf8");
+    for (const id of Object.keys(PRIVACY_PENDING)) expect(page).toContain(`<Pending id="${id}" />`);
+  });
+
+  it("the policy text makes no instant-deletion, anonymization or compliance claims", () => {
+    const page = readFileSync("app/privacidad/page.tsx", "utf8").toLowerCase();
+    for (const claim of ["anonimiz", "inmediatamente", "de inmediato", "certificad", "cumple con", "garantiza"]) {
+      expect(page, claim).not.toContain(claim);
+    }
+  });
 
   it("private routes are never cached publicly nor indexed", async () => {
     const headers = await nextConfig.headers!();

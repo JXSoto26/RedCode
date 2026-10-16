@@ -76,3 +76,39 @@ export function mailtoLink(email: string | null): string | null {
   if (!email || !/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(email)) return null;
   return `mailto:${email}`;
 }
+
+/** Commercial relationship, used by the retention review (not a project manager). */
+export const RELATIONSHIPS = ["prospecto", "cliente_activo", "cerrado"] as const;
+export type Relationship = (typeof RELATIONSHIPS)[number];
+
+export const RELATIONSHIP_LABELS: Record<Relationship, string> = {
+  prospecto: "Prospecto (no contratado)",
+  cliente_activo: "Cliente activo",
+  cerrado: "Relación cerrada",
+};
+
+export const RELATIONSHIP_HELP: Record<Relationship, string> = {
+  prospecto: "Se elimina tras 12 meses sin actividad comercial documentada, en la revisión mensual siguiente.",
+  cliente_activo: "Proyecto, mantenimiento o soporte vigente. Nunca entra en la limpieza automática.",
+  cerrado: "La relación terminó. Revisa a mano qué hay que conservar; no se borra solo.",
+};
+
+export const isRelationship = (value: unknown): value is Relationship =>
+  typeof value === "string" && (RELATIONSHIPS as readonly string[]).includes(value);
+
+export const ACTIVITY_LABELS: Record<string, string> = {
+  solicitud_recibida: "solicitud recibida",
+  cambio_estado: "cambio de estado",
+  nota: "nota interna",
+  borrador: "borrador guardado",
+  cotizacion_finalizada: "cotización finalizada",
+  envio_aceptado: "envío aceptado por Resend",
+  cambio_relacion: "cambio de relación",
+};
+
+/** Date from which an unconverted request becomes a deletion candidate. */
+export function retentionDueDate(lastActivityIso: string) {
+  const d = new Date(lastActivityIso);
+  d.setUTCMonth(d.getUTCMonth() + 12);
+  return d.toISOString();
+}
