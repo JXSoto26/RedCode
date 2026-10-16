@@ -4,6 +4,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Badge } from "@/components/ui/badge";
 import {
+  PRIVACY_FACTS,
   PRIVACY_PENDING,
   PRIVACY_POLICY,
   PRIVACY_REQUESTS,
@@ -125,10 +126,10 @@ export default async function PrivacyPage() {
               desde una misma conexión y para un mismo email. La dirección IP y el email no se guardan en claro para
               esto: se guarda una huella (hash) con clave secreta que no permite leerlos, junto con un contador que se
               elimina periódicamente. La verificación anti-spam de Cloudflare Turnstile procesa datos técnicos de tu
-              navegador y tu conexión (ver la sección 7). Los proveedores de alojamiento generan registros técnicos de
-              funcionamiento.
+              navegador y tu conexión (ver la sección 7). Al visitar el sitio, el proveedor de alojamiento (Vercel)
+              registra datos técnicos de cada petición, como la dirección IP, el navegador y la página solicitada, para
+              que el sitio funcione y para su seguridad (ver la sección 6).
             </p>
-            <Pending id="vercelLogs" />
             <p>
               El formulario no permite adjuntar archivos. Si nos envías archivos o información por email o WhatsApp, se
               tratan con las mismas reglas que tu solicitud (sección 5).
@@ -200,9 +201,11 @@ export default async function PrivacyPage() {
             </p>
             <p>
               <strong>Documentos contractuales y contables</strong> (por ejemplo, propuestas aceptadas, contratos o
-              facturas): se conservan durante el plazo que exijan las obligaciones legales y contables del estudio.
+              facturas): se conservan mientras sean necesarios para cumplir el contrato, atender reclamaciones o
+              garantías relacionadas con el servicio, y durante el tiempo que exijan las obligaciones fiscales,
+              contables o legales que apliquen al estudio. Al terminar ese plazo se eliminan. Solo se conserva lo que
+              esas finalidades requieren, no el resto del expediente.
             </p>
-            <Pending id="accounting" />
             <p>
               <strong>Excepciones.</strong> No se elimina un expediente mientras exista una obligación legal documentada
               de conservarlo, una reclamación o disputa abierta, o un envío de email cuyo resultado esté pendiente de
@@ -230,8 +233,9 @@ export default async function PrivacyPage() {
             </p>
             <List>
               <li>
-                <strong>Copias de seguridad de la base de datos (Supabase):</strong> si el plan contratado las incluye,
-                son copias completas que caducan solas al cabo de unos días. No se usan para consultar datos. Si alguna
+                <strong>Copias de seguridad de la base de datos (Supabase):</strong> Supabase hace una copia completa
+                diaria que se conserva {PRIVACY_FACTS.supabaseBackupDays} días y luego caduca sola. No se usan para
+                consultar datos. Si alguna
                 vez hubiera que restaurar una, se volverían a eliminar los expedientes ya borrados antes de volver a usar
                 el sistema. Los PDF guardados en el almacenamiento privado no forman parte de esas copias.
               </li>
@@ -240,11 +244,12 @@ export default async function PrivacyPage() {
                 de los emails enviados durante 30 días y sus copias de seguridad durante 7 días más.
               </li>
               <li>
-                <strong>Registros técnicos (Vercel y Supabase):</strong> se conservan pocos días según el plan de cada
-                proveedor y caducan solos.
+                <strong>Registros técnicos (Vercel y Supabase):</strong> los registros de peticiones al sitio en Vercel,
+                que incluyen la dirección IP, se conservan como máximo un día; los registros técnicos de la base de datos
+                en Supabase, {PRIVACY_FACTS.supabaseLogDays} días. Caducan solos. Vercel puede tratar además datos técnicos por su cuenta para la seguridad de su
+                plataforma, según su propia política de privacidad.
               </li>
             </List>
-            <Pending id="supabasePlan" />
             <p>
               Los emails que ya recibiste de nosotros, o que tú reenviaste a otras personas, están en buzones que no
               controlamos y no podemos eliminarlos.
@@ -258,12 +263,13 @@ export default async function PrivacyPage() {
             </p>
             <p>
               En la página del formulario se carga Cloudflare Turnstile para distinguir personas de programas
-              automáticos. Según Cloudflare, para ello procesa datos como la dirección IP, el tipo de navegador y
-              características técnicas de la conexión, y los usa solo para la verificación y para proteger su servicio,
-              no para identificarte, crear perfiles sobre ti ni segmentarte. Esta verificación es necesaria para que el
-              formulario funcione.
+              automáticos. Según Cloudflare, procesa la dirección IP, el navegador (User-Agent), una huella técnica de
+              la conexión (TLS) y la página donde está el widget. Usa esos datos para detectar y bloquear bots y para
+              mejorar ese servicio, no para identificarte, crear perfiles sobre ti ni segmentarte. Con la configuración
+              de este sitio, Turnstile no instala la cookie de autorización de Cloudflare (cf_clearance): genera un
+              código de un solo uso que el formulario envía con tu solicitud. Cloudflare no publica cuánto tiempo conserva estos datos. Esta verificación es necesaria
+              para que el formulario funcione.
             </p>
-            <Pending id="turnstile" />
           </Section>
 
           <Section title="8. Acceso y protección">

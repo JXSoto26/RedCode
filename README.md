@@ -339,15 +339,13 @@ Llegan a `redcodepr@gmail.com`. No hay formulario ni respuestas automáticas.
 
 ### Bloqueantes
 
-| Pendiente | Responsable | Comprobado por |
-| --- | --- | --- |
-| Aprobar el texto de [/privacidad](app/privacidad/page.tsx), resolver `PRIVACY_PENDING` y poner `PRIVACY_POLICY` = `vigente` con la fecha de lanzamiento en [lib/privacy.ts](lib/privacy.ts) | Jeremy (aprobación y datos), luego código | `privacyPolicyFinal()` exige estado, fecha y cero pendientes; sin eso el formulario no se habilita en Production |
-| Aplicar en PROD las migraciones de retención (`20261016144100`, `20261016144627`, `20261016150951`) | Jeremy autoriza; `npm run prod:db` | `npm run prod:db -- status` |
-| Confirmar `redcode-prod` (`ylzygfcvycbwmcyzmefy`) como PROD y aplicar migraciones | Jeremy confirma; aplicación con `npm run prod:db` | `npm run prod:verify` |
-| Registro público desactivado en PROD y administrador PROD creado | Jeremy (panel de Supabase) | `npm run prod:verify` (registro) |
-| Widget de Turnstile de Production y sus variables en Vercel Production | Jeremy | La guarda rechaza claves de prueba; sin claves el formulario no se habilita |
-| Variables de Production en Vercel (lista abajo) | Jeremy | Guarda de entorno en build y arranque |
-| Dominio conectado en Vercel y DNS en Cloudflare | Jeremy | Comprobación HTTP y SSL |
+| Pendiente | Estado |
+| --- | --- |
+| Aprobar el texto final de [/privacidad](app/privacidad/page.tsx) y poner `PRIVACY_POLICY` = `vigente` con la fecha real del lanzamiento (y vaciar `PRIVACY_PENDING`) en [lib/privacy.ts](lib/privacy.ts) | **Pendiente** (aprobación de Jeremy). `privacyPolicyFinal()` exige estado, fecha y cero pendientes |
+| PROD `redcode-prod` (`ylzygfcvycbwmcyzmefy`): 9 migraciones, registro desactivado, administrador | Hecho el 16-10-2026. `npm run prod:verify`: todo correcto |
+| Variables de Vercel Production y Turnstile de Production (pre-clearance desactivado) | Hecho. Ver "Variables de Vercel Production" |
+| Merge a `master` (despliega Production) | **Pendiente** (autorización) |
+| Dominio en Vercel y DNS en Cloudflare | **Pendiente** (autorización) |
 
 ### Turnstile (anti-spam)
 
@@ -417,21 +415,37 @@ Solo en el entorno **Production**, con valores **propios de PROD**. Nada de DEV.
   - `A` `@` → la IP que indique Vercel (habitualmente `76.76.21.21`).
   - `CNAME` `www` → el destino que indique Vercel (habitualmente `cname.vercel-dns.com`).
   - Ambos con el proxy de Cloudflare **desactivado** ("DNS only", nube gris), para que Vercel emita el certificado.
-- **No tocar** los registros de Resend: `TXT resend._domainkey`, `MX` y `TXT send`, y `TXT _dmarc`.
+- **No tocar** los registros de Resend (comprobados el 16-10-2026): `CNAME send` → `send.forge.rmta.net`, `TXT resend._domainkey` (DKIM) y `TXT _dmarc` (`v=DMARC1; p=none;`). Nameservers: `josh` y `margot.ns.cloudflare.com`. No hay CAA.
+
+**Añadir los dominios en Vercel** (proyecto `red-code`, equipo `red-code-web-desing`):
+
+1. Panel de Vercel → proyecto **red-code** → **Settings → Domains → Add Domain** → `redcodewebdesign.com`, entorno **Production**.
+2. Si Vercel ofrece añadir también `www.redcodewebdesign.com` con redirección, acepta la opción **"Redirect www to apex"** (308). Si no, añade `www.redcodewebdesign.com` y en **Edit** elige **Redirect to** `redcodewebdesign.com` (308).
+3. Cada dominio aparecerá como **Invalid Configuration** con un aviso que indica el registro exacto. Copia de ahí el tipo, el nombre y el valor. Si el dominio estuvo antes en otra cuenta de Vercel, pedirá además un `TXT _vercel` de verificación.
+4. Alternativa por CLI, desde una carpeta temporal fuera del repo:
+   ```bash
+   npx vercel@64.2.0 domains add redcodewebdesign.com red-code --scope red-code-web-desing
+   npx vercel@64.2.0 domains inspect redcodewebdesign.com --scope red-code-web-desing
+   ```
+5. En Cloudflare → **DNS → Records**, crea solo los registros que muestre Vercel (normalmente `A @` y `CNAME www`), con **Proxy status: DNS only**. No edites ni borres nada más.
+6. Espera a que Vercel marque ambos dominios como **Valid Configuration** y emita el certificado.
 
 ### Plan de lanzamiento
 
-1. Cerrar los bloqueantes de código: la política definitiva y las claves configuradas.
-2. PROD: confirmar el destino, aplicar las migraciones, desactivar el registro, crear el administrador y ejecutar `prod:verify`.
-3. Vercel Production: cargar las variables de la tabla, con `QUOTE_EMAIL_DELIVERY=allowlist`.
-4. Merge de `feature/cotizar` a `master`: se despliega en Production (`red-code-brown.vercel.app`). Comprobar que el build pasa la guarda y que `/cotizar` está habilitado.
-5. Conectar `redcodewebdesign.com` y `www` en Vercel y crear los registros en Cloudflare. Comprobar el certificado y la redirección de `www`.
-6. **Prueba de lanzamiento limitada:**
-   - Una solicitud desde `/cotizar` con el email `redcodepr@gmail.com`.
-   - Comprobar la fila en PROD y los dos emails.
-   - Entrar en `/admin` y finalizar una cotización de prueba.
-   - Enviarla a `redcodepr@gmail.com`.
-7. Si todo va bien: `QUOTE_EMAIL_DELIVERY=all`, volver a desplegar y comprobar de nuevo con un envío a `redcodepr@gmail.com`.
+El día del lanzamiento, en este orden:
+
+1. **Política:** con el texto aprobado, `PRIVACY_POLICY` = `{ status: "vigente", effectiveDate: "<día del lanzamiento>" }` y `PRIVACY_PENDING` vacío. Ejecutar lint, typecheck, pruebas y build; hacer commit en `feature/cotizar` y comprobar en Preview que `/privacidad` ya no es borrador.
+2. **Merge de `feature/cotizar` a `master`:** se despliega Production. Comprobar que el build pasa la guarda de entorno. En `red-code-brown.vercel.app` se pueden revisar las páginas, pero el formulario **no puede completarse allí**: el widget de Turnstile de Production solo acepta el dominio propio.
+3. **Dominios:** añadirlos en Vercel y crear los registros en Cloudflare (ver "Dominio y DNS").
+4. **Prueba en `https://redcodewebdesign.com`** (con `QUOTE_EMAIL_DELIVERY=allowlist` y `redcodepr@gmail.com` como único destinatario):
+   - HTTPS válido. `https://www.…` y `http://…` redirigen a `https://redcodewebdesign.com` (308).
+   - `/privacidad` muestra "Vigente desde…", sin `noindex`, y aparece en `/sitemap.xml`.
+   - `/cotizar`: el widget de Turnstile real aparece y se resuelve. Enviar una solicitud marcada **PRUEBA**, con el email `redcodepr@gmail.com`. Se muestra la referencia.
+   - Un `POST /api/quote-requests` sin token responde `403 challenge_failed` y no guarda nada.
+   - `/admin` (cuenta PROD): la solicitud aparece en estado `nueva`. Los dos emails automáticos figuran como "Aceptado por Resend". Comprobar en Gmail que llegaron: solo así se confirma la entrega.
+   - En la solicitud de prueba: borrador PRUEBA → **Finalizar** → abrir el PDF → **Confirmar envío** a `redcodepr@gmail.com`. Comprobar el registro "aceptado" y la llegada a Gmail.
+   - Revisar en Vercel los errores de Production.
+5. **Después:** la solicitud de prueba se puede borrar con `npm run retention:prod -- erase --only=<id>`, previa autorización. Decidir más adelante si pasar a `QUOTE_EMAIL_DELIVERY=all`.
 
 ### Reversión
 
@@ -445,10 +459,12 @@ Solo en el entorno **Production**, con valores **propios de PROD**. Nada de DEV.
   - Las migraciones no borran datos al aplicarse. Solo añaden tablas, columnas y funciones; la de retención además calcula `last_activity_at` de las solicitudes existentes (todas quedan como `prospecto`). Las funciones de borrado solo actúan cuando se ejecuta `npm run retention:prod -- execute` o `erase`.
   - No hay "rollback" destructivo. Un problema de esquema se corrige con una migración nueva, revisada y probada primero en DEV.
   - El código anterior (`942f032`) no usa la base, así que revertir el código es compatible con el esquema nuevo.
-- **Dominio:** borra o cambia los registros `A`/`CNAME` de la raíz y de `www` en Cloudflare. No toques los de Resend.
+- **Dominio:** borra los registros `A @` y `CNAME www` creados en Cloudflare (el dominio vuelve a no publicar nada) y quita los dominios del proyecto en Vercel. No toques los de Resend.
+- **Política:** si hay que retirarla, volver a `borrador` cierra el formulario en Production con el siguiente despliegue.
 
 ### Otros pendientes (no bloquean)
 
+- **Plan de Vercel:** el equipo está en **Hobby**, que las condiciones de Vercel limitan a uso personal no comercial. Para un sitio de negocio conviene pasar a Pro (decisión de Jeremy). La política dice que los registros con IP se conservan "como máximo un día": vale para Hobby (1 h) y para Pro (1 día). Activar Observability Plus (30 días) obligaría a cambiar el texto.
 - WhatsApp de contacto: cuando se configure en `lib/site.ts`, aparecerá en el sitio y en el PDF.
 - `npm audit`: quedan 5 avisos altos en la cadena de lint (`eslint-config-next` → `fast-glob`/`micromatch`/`braces`). Solo afectan a herramientas de desarrollo; `npm audit --omit=dev` = 0. npm solo propone bajar a la v14, que no corresponde.
 - Node local `22.20` frente a `24.x` en Vercel: ambos son compatibles con Next 16.3 (`>=20.9`). Algunas dependencias de prueba (`jsdom`) piden `22.22+`: conviene actualizar Node local.

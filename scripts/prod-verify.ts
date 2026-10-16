@@ -64,6 +64,8 @@ async function main() {
     ["admin_claim_quote_send", { p_send_id: id(), p_mode: "nuevo" }],
     ["admin_finish_quote_send", { p_send_id: id(), p_outcome: "aceptado", p_provider_id: "x", p_error: null }],
     ["admin_resolve_quote_send", { p_send_id: id(), p_resolution: "no_enviado", p_provider_id: null }],
+    ["admin_set_relationship", { p_request_id: id(), p_expected: "prospecto", p_new: "cliente_activo" }],
+    ["admin_set_retention_hold", { p_request_id: id(), p_hold: false, p_reason: null }],
     ["quote_rate_limit_hit", { p_bucket: "verify", p_window_seconds: 0, p_limit: 1 }],
   ];
   for (const [fn, args] of calls) {

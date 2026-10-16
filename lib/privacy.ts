@@ -17,14 +17,23 @@ export const PRIVACY_POLICY = {
  * once the text is updated with the confirmed answer.
  */
 export const PRIVACY_PENDING = {
-  accounting: "Plazo de conservación de documentos contractuales y contables: pendiente de confirmar con tu contador.",
-  supabasePlan:
-    "Plan de Supabase de producción: de él depende si hay copias de seguridad de la base de datos y cuántos días duran (Free: ninguna; Pro: 7 días; Team: 14).",
-  turnstile:
-    "Cloudflare no detalla en la documentación consultada qué cookies o almacenamiento usa Turnstile ni cuánto conserva los datos de la verificación.",
-  vercelLogs: "No está confirmado si los registros técnicos de Vercel incluyen la dirección IP del visitante.",
-  review: "Revisión final del texto por Jeremy (y, si lo considera necesario, por un asesor legal).",
+  review: "Aprobación final del texto por Jeremy.",
 } as Record<string, string>;
+
+/**
+ * Facts the text relies on, confirmed on 2026-10-16. If any changes (plan,
+ * PITR, Turnstile pre-clearance), update the text before changing this.
+ * - Supabase PROD: Pro plan, daily physical backups kept 7 days, PITR off,
+ *   logs kept 7 days.
+ * - Vercel team: Hobby (runtime logs 1 hour); Pro keeps them 1 day. The text
+ *   says "at most one day". Observability Plus (30 days) would need a change.
+ * - Turnstile Production widget: pre-clearance off (no cf_clearance cookie).
+ * - Contractual/accounting documents: no fixed period promised (approved wording).
+ */
+export const PRIVACY_FACTS = {
+  supabaseBackupDays: 7,
+  supabaseLogDays: 7,
+};
 
 export const privacyPolicyFinal = () =>
   PRIVACY_POLICY.status === "vigente" && Boolean(PRIVACY_POLICY.effectiveDate) && Object.keys(PRIVACY_PENDING).length === 0;
