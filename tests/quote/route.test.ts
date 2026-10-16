@@ -74,6 +74,14 @@ describe("POST /api/quote-requests", () => {
       expect(fake.rows).toHaveLength(1);
     });
 
+    it("refuses a failed Turnstile check with 403 and saves nothing", async () => {
+      mockDeps.current = { ...mockDeps.current!, turnstile: { verify: async () => ({ ok: false, reason: "expired" }) } };
+      const res = await post({ ...validBody(), turnstileToken: "tok" });
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({ error: "challenge_failed", reason: "expired" });
+      expect(fake.rows).toHaveLength(0);
+    });
+
     it("rejects cross-origin posts", async () => {
       const res = await post(validBody(), { origin: "https://evil.example" });
       expect(res.status).toBe(403);

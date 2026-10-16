@@ -1,7 +1,10 @@
 import "server-only";
+import { deploymentEnv, deploymentProblems, isTurnstileTestKey } from "@/lib/deployment";
+import { privacyPolicyFinal } from "@/lib/privacy";
 import { createResendMailer } from "./resend-mailer";
 import { createSupabaseAdminClient, createSupabaseQuoteRepository } from "./supabase-repository";
 import type { SubmitDeps } from "./service";
+import { createTurnstileVerifier } from "./turnstile";
 import type { EmailSettings } from "./types";
 
 /**
@@ -22,9 +25,50 @@ const parseList = (value: string | null) =>
         .filter(Boolean)
     : [];
 
-/** True when the request can be saved: Supabase + rate-limit secret are set. */
+export type TurnstileConfig =
+  | { status: "enabled"; siteKey: string; secretKey: string; expectedHostnames: string[] | null; testKeys: boolean }
+  | { status: "disabled" }
+  | { status: "misconfigured"; reason: string };
+
+/**
+ * Turnstile (anti-spam) settings.
+ * - Production: both keys, real (not Cloudflare test) keys and the expected
+ *   hostnames are required; otherwise the form stays disabled.
+ * - Elsewhere: enforced whenever keys are set; Cloudflare test keys allowed.
+ */
+export function getTurnstileConfig(): TurnstileConfig {
+  const siteKey = env("TURNSTILE_SITE_KEY");
+  const secretKey = env("TURNSTILE_SECRET_KEY");
+  const hostnames = parseList(env("TURNSTILE_EXPECTED_HOSTNAMES"));
+  const production = deploymentEnv() === "production";
+
+  if (!siteKey && !secretKey) {
+    return production ? { status: "misconfigured", reason: "turnstile_missing" } : { status: "disabled" };
+  }
+  if (!siteKey || !secretKey) return { status: "misconfigured", reason: "turnstile_incomplete" };
+  const testKeys = isTurnstileTestKey(siteKey) || isTurnstileTestKey(secretKey);
+  if (production && testKeys) return { status: "misconfigured", reason: "turnstile_test_keys" };
+  if (production && hostnames.length === 0) return { status: "misconfigured", reason: "turnstile_hostnames_missing" };
+  return { status: "enabled", siteKey, secretKey, expectedHostnames: hostnames.length ? hostnames : null, testKeys };
+}
+
+/**
+ * True when requests can be accepted. Fails closed: wrong environment, broken
+ * anti-spam settings or, in Production, a draft privacy policy disable the form.
+ */
 export function isQuoteSubmissionEnabled() {
-  return Boolean(env("SUPABASE_URL") && env("SUPABASE_SECRET_KEY") && env("QUOTE_RATE_LIMIT_SECRET"));
+  if (!(env("SUPABASE_URL") && env("SUPABASE_SECRET_KEY") && env("QUOTE_RATE_LIMIT_SECRET"))) return false;
+  if (deploymentProblems().length) return false;
+  const turnstile = getTurnstileConfig();
+  if (turnstile.status === "misconfigured") return false;
+  if (deploymentEnv() === "production" && (turnstile.status !== "enabled" || !privacyPolicyFinal())) return false;
+  return true;
+}
+
+/** Public Turnstile site key for the form, or null when not enforced. */
+export function turnstileSiteKey() {
+  const t = getTurnstileConfig();
+  return t.status === "enabled" ? t.siteKey : null;
 }
 
 /**
@@ -50,9 +94,17 @@ export function getEmailSettings(options: { timeoutMs?: number } = {}): EmailSet
 export function getSubmitDeps(): SubmitDeps | null {
   if (!isQuoteSubmissionEnabled()) return null;
   const client = createSupabaseAdminClient(env("SUPABASE_URL")!, env("SUPABASE_SECRET_KEY")!);
+  const turnstile = getTurnstileConfig();
   return {
     repo: createSupabaseQuoteRepository(client),
     bucketSecret: env("QUOTE_RATE_LIMIT_SECRET")!,
+    turnstile:
+      turnstile.status === "enabled"
+        ? createTurnstileVerifier(turnstile.secretKey, {
+            expectedHostnames: turnstile.testKeys ? null : turnstile.expectedHostnames,
+            checkAction: !turnstile.testKeys,
+          })
+        : null,
     email: getEmailSettings(),
     log: (event, details) => console.warn(`[quote] ${event}`, details),
   };

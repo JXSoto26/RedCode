@@ -4,12 +4,13 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Badge } from "@/components/ui/badge";
 import { QuoteForm } from "@/components/quote/quote-form";
-import { isQuoteSubmissionEnabled } from "@/lib/quote/config";
+import { isQuoteSubmissionEnabled, turnstileSiteKey } from "@/lib/quote/config";
 
 export const metadata: Metadata = {
   title: "Solicitar cotización",
   description:
     "Cuéntame sobre tu negocio y tu proyecto para preparar una cotización de tu página web.",
+  alternates: { canonical: "/cotizar" },
 };
 
 export default async function QuotePage() {
@@ -38,7 +39,7 @@ export default async function QuotePage() {
                 Necesitas activar JavaScript en tu navegador para enviar este formulario.
               </p>
             </noscript>
-            <QuoteForm enabled={enabled} />
+            <QuoteForm enabled={enabled} turnstileSiteKey={enabled ? turnstileSiteKey() : null} />
           </div>
         </div>
       </main>

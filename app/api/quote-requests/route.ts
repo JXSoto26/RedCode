@@ -64,6 +64,9 @@ export async function POST(request: Request) {
       return json(409, { error: "conflict" });
     case "persist_failed":
       return json(503, { error: "persist_failed" });
+    case "challenge_failed":
+      // Nothing was saved or sent; the form gets a fresh token and retries.
+      return json(403, { error: "challenge_failed", reason: result.reason });
     case "spam":
     case "bad_request":
       return json(400, { error: "bad_request" });

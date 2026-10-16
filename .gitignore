@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Supabase PROD workdir (scripts/prod-db.ts): its own CLI link, never committed
+/.supabase-prod/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

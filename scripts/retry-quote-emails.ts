@@ -8,6 +8,7 @@
  * requests themselves are never created or modified beyond notification fields.
  * Output lists references only — no personal data.
  */
+import { DEV_PROJECT_REF } from "@/lib/deployment";
 import { getEmailSettings } from "@/lib/quote/config";
 import type { NotificationStatus } from "@/lib/quote/options";
 import { sendNotifications } from "@/lib/quote/service";
@@ -25,6 +26,18 @@ async function main() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) throw new Error("Faltan SUPABASE_URL o SUPABASE_SECRET_KEY.");
+
+  // DEV by default. PROD only when the ref is SUPABASE_PROD_PROJECT_REF and is
+  // repeated with --confirm-prod=<ref> (npm run quote:retry-emails:prod).
+  const ref = new URL(url).hostname.replace(/\.supabase\.co$/, "");
+  if (ref !== DEV_PROJECT_REF) {
+    const prodRef = process.env.SUPABASE_PROD_PROJECT_REF?.trim();
+    const confirm = process.argv.find((a) => a.startsWith("--confirm-prod="))?.split("=")[1];
+    if (!prodRef || ref !== prodRef || confirm !== prodRef) {
+      throw new Error(`Destino ${ref} no autorizado: para PROD usa SUPABASE_PROD_PROJECT_REF y --confirm-prod=<ref>.`);
+    }
+  }
+  console.log(`Destino: ${ref === DEV_PROJECT_REF ? "DEV" : "PROD"} (${ref})`);
   const email = getEmailSettings();
   if (!email) throw new Error("El email no está configurado (RESEND_API_KEY, QUOTE_EMAIL_FROM, QUOTE_NOTIFY_EMAIL).");
 

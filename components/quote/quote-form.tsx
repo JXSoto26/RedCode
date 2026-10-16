@@ -28,6 +28,7 @@ import {
 } from "@/lib/quote/schema";
 import { CheckboxField, ChoiceGroup, TextAreaField, TextField } from "./fields";
 import { QuoteSummary, STEP_TITLES } from "./quote-summary";
+import { TurnstileWidget, type TurnstileHandle } from "./turnstile-widget";
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -50,9 +51,20 @@ const SUBMIT_ERRORS: Record<string, string> = {
   network:
     "No pude confirmar el envío por un problema de conexión. Tus datos siguen aquí. Si lo intentas de nuevo, no se creará una solicitud duplicada.",
   generic: "No pude procesar la solicitud. Revisa los datos e inténtalo de nuevo.",
+  challenge_missing: "Completa la verificación anti-spam antes de enviar.",
+  challenge_failed:
+    "La verificación anti-spam no es válida o caducó. Se generó una nueva: espera a que se complete y vuelve a enviar. Tus datos siguen aquí.",
+  challenge_unavailable:
+    "No se pudo comprobar la verificación anti-spam en este momento. Tus datos siguen aquí; inténtalo de nuevo en unos minutos.",
 };
 
-export function QuoteForm({ enabled }: { enabled: boolean }) {
+export function QuoteForm({
+  enabled,
+  turnstileSiteKey = null,
+}: {
+  enabled: boolean;
+  turnstileSiteKey?: string | null;
+}) {
   const [step, setStep] = React.useState<Step>(1);
   const [values, setValues] = React.useState<QuoteFormValues>(EMPTY_FORM);
   const [errors, setErrors] = React.useState<FieldErrors>({});
@@ -69,6 +81,8 @@ export function QuoteForm({ enabled }: { enabled: boolean }) {
   const submittingRef = React.useRef(false);
   const lastAttemptRef = React.useRef<{ payload: string; key: string } | null>(null);
   const navigatedRef = React.useRef(false);
+  const turnstileRef = React.useRef<TurnstileHandle>(null);
+  const [turnstileToken, setTurnstileToken] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     startedAtRef.current = Date.now();
@@ -154,6 +168,11 @@ export function QuoteForm({ enabled }: { enabled: boolean }) {
       return;
     }
 
+    if (turnstileSiteKey && !turnstileToken) {
+      setSubmitError(SUBMIT_ERRORS.challenge_missing);
+      return;
+    }
+
     // Reuse the idempotency key while the payload is unchanged, so retries
     // after a lost response never create a second request.
     const payload = JSON.stringify(values);
@@ -173,6 +192,7 @@ export function QuoteForm({ enabled }: { enabled: boolean }) {
           idempotencyKey: key,
           website: honeypotRef.current?.value ?? "",
           startedAt: startedAtRef.current,
+          ...(turnstileToken && { turnstileToken }),
           data: values,
         }),
       });
@@ -180,6 +200,7 @@ export function QuoteForm({ enabled }: { enabled: boolean }) {
         reference?: string;
         visitorEmail?: NotificationStatus;
         error?: string;
+        reason?: string;
         fieldErrors?: FieldErrors;
       } | null;
 
@@ -199,6 +220,15 @@ export function QuoteForm({ enabled }: { enabled: boolean }) {
         setFocusErrors((n) => n + 1);
       }
       if (body?.error === "conflict") lastAttemptRef.current = null;
+      if (body?.error === "challenge_failed") {
+        // Nothing was saved: start over with a fresh token and a new key.
+        lastAttemptRef.current = null;
+        turnstileRef.current?.reset();
+        setSubmitError(
+          body.reason === "unavailable" ? SUBMIT_ERRORS.challenge_unavailable : SUBMIT_ERRORS.challenge_failed
+        );
+        return;
+      }
       setSubmitError(SUBMIT_ERRORS[body?.error ?? ""] ?? SUBMIT_ERRORS.generic);
     } catch {
       setSubmitError(SUBMIT_ERRORS.network);
@@ -511,6 +541,16 @@ export function QuoteForm({ enabled }: { enabled: boolean }) {
             >
               {CONSENT_TEXT}
             </CheckboxField>
+            <p className="text-sm text-muted">
+              Cómo trato estos datos:{" "}
+              <a href="/privacidad" target="_blank" rel="noopener" className="text-brand-300 underline underline-offset-4">
+                Política de privacidad
+              </a>
+              .
+            </p>
+            {enabled && turnstileSiteKey && (
+              <TurnstileWidget ref={turnstileRef} siteKey={turnstileSiteKey} onToken={setTurnstileToken} />
+            )}
           </>
         )}
       </div>

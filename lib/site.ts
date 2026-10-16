@@ -11,8 +11,11 @@ export const site = {
   owner: "Jeremy Soto",
   location: "Puerto Rico",
 
-  /** Public domain, e.g. "https://example.com". Pending confirmation. */
-  url: null as string | null,
+  /**
+   * Canonical public origin (apex; www redirects here, see next.config.ts).
+   * Used for metadataBase, canonical URLs, Open Graph, sitemap and robots.
+   */
+  url: "https://redcodewebdesign.com" as string | null,
 
   contact: {
     /** Public email address (also printed on quote PDFs). */

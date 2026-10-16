@@ -3,6 +3,7 @@ import { generateReference, hashBucket, hashPayload } from "./crypto";
 import { ownerNotificationEmail, visitorConfirmationEmail } from "./emails";
 import type { NotificationStatus } from "./options";
 import { parseQuoteRequest, type FieldErrors, type QuoteRequestData } from "./schema";
+import type { TurnstileFailure, TurnstileVerifier } from "./turnstile";
 import type {
   EmailMessage,
   EmailSettings,
@@ -27,6 +28,8 @@ const envelopeSchema = z.object({
   website: z.string().max(200),
   /** Client timestamp (ms) when the form was first rendered. */
   startedAt: z.number().int().nonnegative(),
+  /** Cloudflare Turnstile token (required when Turnstile is configured). */
+  turnstileToken: z.string().max(2048).optional(),
   data: z.unknown(),
 });
 
@@ -34,6 +37,8 @@ export type SubmitDeps = {
   repo: QuoteRepository;
   /** Secret used to hash rate-limit buckets. */
   bucketSecret: string;
+  /** Anti-spam check; null when Turnstile is not configured (never in Production). */
+  turnstile?: TurnstileVerifier | null;
   /** Null when email is not configured: notifications are recorded as "omitido". */
   email: EmailSettings | null;
   log?: (event: string, details: Record<string, string | number | boolean | null>) => void;
@@ -51,6 +56,7 @@ export type SubmitResult =
   | { status: "invalid"; fieldErrors: FieldErrors }
   | { status: "bad_request" }
   | { status: "spam" }
+  | { status: "challenge_failed"; reason: TurnstileFailure }
   | { status: "rate_limited" }
   | { status: "conflict" }
   | { status: "persist_failed" };
@@ -66,7 +72,7 @@ export async function submitQuoteRequest(
 
   const envelope = envelopeSchema.safeParse(raw);
   if (!envelope.success) return { status: "bad_request" };
-  const { idempotencyKey, website, startedAt, data } = envelope.data;
+  const { idempotencyKey, website, startedAt, turnstileToken, data } = envelope.data;
 
   if (website.trim() !== "" || ctx.now.getTime() - startedAt < MIN_FILL_MS) {
     log("quote_spam_rejected", { honeypot: website.trim() !== "" });
@@ -82,6 +88,16 @@ export async function submitQuoteRequest(
     // A retry of an already-saved submission returns the original result.
     const existing = await deps.repo.findByIdempotencyKey(idempotencyKey);
     if (existing) return replay(existing, payloadHash);
+
+    // Only new submissions need a fresh token: a retry of a saved request
+    // (above) never asks again, so idempotent retries keep working.
+    if (deps.turnstile) {
+      const check = await deps.turnstile.verify(turnstileToken, ctx.ip, idempotencyKey);
+      if (!check.ok) {
+        log("quote_turnstile_rejected", { reason: check.reason });
+        return { status: "challenge_failed", reason: check.reason };
+      }
+    }
 
     const ipAllowed = await deps.repo.hitRateLimit(
       `ip:${hashBucket(deps.bucketSecret, ctx.ip ?? "unknown")}`,

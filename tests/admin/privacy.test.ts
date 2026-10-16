@@ -5,7 +5,9 @@ import { describe, expect, it } from "vitest";
 // Internal notes and drafts must never reach the public flow: the public form,
 // its endpoint and the emails cannot even reference them. (In the database,
 // service_role — the key the public flow uses — has no access to those tables.)
-const PUBLIC_CODE = ["app/api", "app/cotizar", "components/quote", "lib/quote", "scripts"];
+// The public flow and its email retry script. (scripts/prod-*.ts are operator
+// tools that name private tables only to check they are NOT publicly readable.)
+const PUBLIC_CODE = ["app/api", "app/cotizar", "components/quote", "lib/quote", "scripts/retry-quote-emails.ts"];
 const PRIVATE_NAMES = /quote_notes|quote_drafts|quote_draft_items|quote_status_history|internal_notes|admin_users|lib\/admin/;
 
 function files(dir: string): string[] {
@@ -28,8 +30,9 @@ describe("the admin panel never uses the secret key", () => {
 });
 
 describe("privacy of internal notes and drafts", () => {
-  it.each(PUBLIC_CODE)("%s never references private admin data", (dir) => {
-    const offending = files(join(process.cwd(), dir)).filter((f) => PRIVATE_NAMES.test(readFileSync(f, "utf8")));
+  it.each(PUBLIC_CODE)("%s never references private admin data", (path) => {
+    const full = join(process.cwd(), path);
+    const offending = (statSync(full).isDirectory() ? files(full) : [full]).filter((f) => PRIVATE_NAMES.test(readFileSync(f, "utf8")));
     expect(offending).toEqual([]);
   });
 });

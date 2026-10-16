@@ -35,7 +35,7 @@ El flujo completo está en el README (secciones "Supabase DEV", "Pruebas", "Ento
 - El panel usa la clave pública con la sesión del usuario (RLS). Nunca uses `SUPABASE_SECRET_KEY` ni `createSupabaseAdminClient` en `lib/admin/` o `app/admin/`.
 - Las escrituras del panel van solo por las funciones `admin_*` de la base. No concedas `insert`, `update` ni `delete` sobre las tablas del panel a `authenticated` ni a `service_role`.
 - Nunca añadas administradores, cambies `admin_users` ni crees usuarios reales sin que el usuario lo pida. Los usuarios temporales de las pruebas se crean sin enviar emails y se borran al terminar.
-- El código público (`app/api`, `app/cotizar`, `components/quote`, `lib/quote`, `scripts`) no puede referenciar notas, borradores, historial ni `lib/admin`. `tests/admin/privacy.test.ts` lo comprueba.
+- El código público (`app/api`, `app/cotizar`, `components/quote`, `lib/quote`, `scripts/retry-quote-emails.ts`) no puede referenciar notas, borradores, historial ni `lib/admin`. `tests/admin/privacy.test.ts` lo comprueba. Los `scripts/prod-*.ts` solo nombran esas tablas para comprobar que NO son legibles.
 - No añadas eliminación de solicitudes, envío de propuestas, enlaces públicos, pagos ni IA sin que se pida.
 - Los importes se manejan en centavos enteros con `lib/admin/money.ts`. Nunca uses coma flotante para dinero.
 
@@ -48,6 +48,19 @@ El flujo completo está en el README (secciones "Supabase DEV", "Pruebas", "Ento
 - "Aceptado por Resend" no es "entregado". No lo presentes así.
 - `pdfmake` y `fontkit` son paquetes externos del servidor (`next.config.ts`). Si cambias cómo se cargan, comprueba que el trazado del build los incluye y que el PDF se genera con `next start`.
 
+## Supabase PROD (`redcode-prod`)
+- Nada se escribe ni se consulta en PROD sin que el usuario haya confirmado explícitamente la referencia como PROD y la operación concreta.
+- Solo con `npm run prod:db` (workdir `.supabase-prod/`) y `npm run prod:verify`. Nunca cambies el vínculo habitual del repo (`supabase/.temp`) a PROD ni debilites `npm run db:target`.
+- Primero el dry run (`migrate` sin `--apply`): muestra al usuario las migraciones exactas y el destino, y espera su confirmación antes de `--apply --confirm=<ref>`.
+- Nunca ejecutes `test:dev`, `test:db`, fixtures, usuarios temporales ni scripts de envío contra PROD. `prod:verify` es solo de lectura.
+- No copies datos de DEV a PROD.
+
+## Turnstile y guardas de entorno
+- Production exige Turnstile con claves reales y `TURNSTILE_EXPECTED_HOSTNAMES`; las claves de prueba de Cloudflare solo se usan en pruebas, local y Preview.
+- No debilites `lib/deployment.ts` ni la quites de `next.config.ts` / `instrumentation.ts`: Production nunca puede apuntar a DEV, ni Preview o local a otro proyecto que no sea DEV.
+- Un fallo de Turnstile no guarda ni envía nada; los reintentos de solicitudes ya guardadas no piden token. Mantén ese orden en `lib/quote/service.ts`.
+- No cambies `PRIVACY_POLICY` a `vigente` sin el texto revisado y las decisiones del usuario: es la compuerta de lanzamiento del formulario en Production.
+
 ## Pruebas
 - `npm test` no usa red. `npm run test:dev` usa Supabase DEV y no envía emails.
 - Las pruebas que envían email real solo pueden tener como destinatario `redcodepr@gmail.com`, y `QUOTE_EMAIL_DELIVERY` debe ser `allowlist`.
@@ -58,6 +71,7 @@ El flujo completo está en el README (secciones "Supabase DEV", "Pruebas", "Ento
 - No hagas commit, push, merge, ni crees ramas remotas o repositorios sin que el usuario lo pida.
 - Vercel ya está conectado al repo: **un push a `master` despliega en Production**. Cualquier otra rama crea un Preview.
 - Preview usa Supabase DEV. Production necesita un Supabase PROD independiente. Nunca asignes credenciales de DEV al entorno Production de Vercel.
-- No ejecutes `vercel deploy`, `vercel --prod`, `vercel git connect` ni cambies variables de Production sin autorización explícita.
+- No ejecutes `vercel deploy`, `vercel --prod`, `vercel git connect`, `vercel promote` ni cambies variables de Production sin autorización explícita. `vercel redeploy` solo sobre despliegues Preview, cuando el usuario haya pedido actualizar Preview.
+- No cambies DNS, nameservers ni registros de correo, ni conectes dominios, sin autorización explícita.
 - El equipo `red-code-web-desing` contiene proyectos de otros clientes. Indica siempre `--scope red-code-web-desing` y el proyecto `red-code`, y no toques otros proyectos.
 - No ejecutes `vercel link` ni `vercel env pull` en la raíz del repo: escriben `.env.local` y sustituyen la configuración local. Si necesitas un vínculo, crea una carpeta temporal fuera del repo.

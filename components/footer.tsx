@@ -85,7 +85,13 @@ export function Footer() {
             © {new Date().getFullYear()} {site.name}. Todos los derechos
             reservados.
           </p>
-          <p className="text-sm text-muted-2">Hecho en {site.location}</p>
+          <div className="flex items-center gap-4 text-sm text-muted-2">
+            <a href="/privacidad" className="transition-colors hover:text-foreground">
+              Privacidad
+            </a>
+            <span aria-hidden="true">·</span>
+            <p>Hecho en {site.location}</p>
+          </div>
         </div>
       </div>
     </footer>

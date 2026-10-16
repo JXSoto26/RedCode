@@ -24,7 +24,7 @@ Hay contenido que se muestra solo cuando sus datos están configurados, para que
 | --- | --- | --- |
 | `contact.email`, `contact.whatsapp` | `lib/site.ts` | Sección de contacto, enlace "Contacto" y datos de contacto del PDF de cotización. Email configurado: `redcodepr@gmail.com`; WhatsApp pendiente |
 | `socials` | `lib/site.ts` | Enlaces a redes en el footer |
-| `url` (dominio) | `lib/site.ts` | `metadataBase`, URL canónica, Open Graph, sitemap y referencia al sitemap en `robots.txt` |
+| `url` (dominio) | `lib/site.ts` | `metadataBase`, URL canónica, Open Graph, sitemap y `robots.txt`. Configurado: `https://redcodewebdesign.com` (raíz canónica; `www` redirige) |
 | `PROJECTS` | `lib/projects.ts` | Sección de portafolio y su enlace en la navegación |
 
 El número de WhatsApp va en formato internacional, solo dígitos (por ejemplo `1787XXXXXXX`). Las capturas de proyectos van en `public/projects/`.
@@ -221,7 +221,7 @@ La migración inicial crea `quote_requests` y `quote_rate_limits` con RLS activa
 - **Límites de envío compartidos en Supabase** (funcionan en serverless): 5 solicitudes por hora por IP y 3 por día por email. Las IP y los emails se guardan como hash HMAC, nunca en claro.
 - **Idempotencia:** cada envío lleva una clave única. Un reintento o un doble clic devuelve la misma referencia sin crear otra solicitud ni reenviar emails. Si el visitante cambia los datos después de un fallo, el formulario genera una clave nueva.
 - **Otras protecciones:** solo se aceptan peticiones del mismo origen, en JSON y de hasta 32 KB. No se aceptan archivos adjuntos.
-- **Turnstile:** pendiente de decidir; no está implementado.
+- **Cloudflare Turnstile** obligatorio en Production; ver "Lanzamiento". Un token que falta, no es válido o caducó no guarda ni envía nada.
 
 ### Pruebas
 
@@ -240,6 +240,8 @@ La migración inicial crea `quote_requests` y `quote_rate_limits` con RLS activa
 - **PDF:** `npm test` genera PDFs reales (cortos y de varias páginas). Para revisarlos a ojo, genera uno con `renderQuotePdf` y ábrelo.
 - **Formulario completo (manual):** con `npm run dev`, envía una solicitud desde `/cotizar` usando como email del visitante una dirección de `QUOTE_EMAIL_ALLOWLIST`. Comprueba en `quote_requests` que la fila existe con `status = nueva` y los dos `*_email_status = enviado`. `enviado` significa que Resend **aceptó** el email, no que se haya entregado; la entrega se confirma en el panel de Resend (**Emails**) o en el buzón.
 
+- **Turnstile y guardas:** `npm test` cubre el verificador (token ausente, inválido, caducado, otra acción u otro dominio, Cloudflare caído), el servicio (no guarda ni envía si falla; los reintentos de solicitudes guardadas no piden token), el formulario (renovar sin perder datos) y las guardas de entorno.
+
 Orden recomendado antes de subir cambios: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` y, si hubo cambios en la base, en `lib/quote/` o en `lib/admin/`, `npm run db:status`, `npm run test:dev` y `npm run test:db`.
 
 ## Entornos y despliegue
@@ -248,7 +250,7 @@ Orden recomendado antes de subir cambios: `npm run lint`, `npm run typecheck`, `
 | --- | --- | --- | --- |
 | **Local (DEV)** | `npm run dev`, con `.env.local` | `redcode-dev` | Resend, solo a `QUOTE_EMAIL_ALLOWLIST` |
 | **Preview** | Vercel, ramas distintas de `master` | `redcode-dev` | Resend, solo a `QUOTE_EMAIL_ALLOWLIST` |
-| **Production** | Vercel, rama `master` | Un proyecto **PROD independiente** (pendiente de crear) | Dominio verificado y `QUOTE_EMAIL_DELIVERY=all` |
+| **Production** | Vercel, rama `master` | Solo el proyecto **PROD** (`SUPABASE_PROD_PROJECT_REF`); nunca DEV | Remitente del dominio propio; `allowlist` durante la prueba de lanzamiento, luego `all` |
 
 - **Repositorio:** `github.com/JXSoto26/RedCode` (público), rama principal `master`.
 - **Vercel:** el proyecto `red-code` (equipo `red-code-web-desing`) ya está conectado al repositorio. **Un push a `master` despliega en Production** (`red-code-brown.vercel.app`) y un push a cualquier otra rama crea un despliegue Preview. Trabaja en ramas y fusiona a `master` solo lo que deba publicarse.
@@ -258,7 +260,8 @@ Orden recomendado antes de subir cambios: `npm run lint`, `npm run typecheck`, `
 - `SUPABASE_PUBLISHABLE_KEY` se configura en Vercel para el panel (la de DEV solo en Preview). `SUPABASE_DEV_PROJECT_REF` solo sirve para las pruebas y los scripts `db:*`; no se configura en Vercel.
 - Los administradores son por proyecto de Supabase: el de DEV no existe en PROD. Cuando exista PROD, habrá que crear allí su propio administrador.
 - Cambiar variables en Vercel no redespliega solo: hay que volver a desplegar para que la portada (estática) las lea.
-- Las migraciones de la base PROD se aplicarán con un vínculo y un procedimiento propios, que todavía no existen. Ningún script `db:*` funciona contra un proyecto que no sea `SUPABASE_DEV_PROJECT_REF`.
+- Las migraciones de PROD se aplican con `npm run prod:db` (ver "Lanzamiento"). Ningún script `db:*` funciona contra un proyecto que no sea `SUPABASE_DEV_PROJECT_REF`.
+- Las guardas de entorno impiden combinaciones incorrectas (por ejemplo, Production con DEV): ver "Lanzamiento → Guardas de entorno".
 
 ## Secretos
 
@@ -272,10 +275,121 @@ Orden recomendado antes de subir cambios: `npm run lint`, `npm run typecheck`, `
 - Los registros de la app guardan solo referencias y códigos de error, nunca datos personales ni mensajes del proveedor.
 - Si un secreto se filtra, rótalo en el panel del servicio y actualízalo en `.env.local` y en Vercel.
 
-### Pendiente antes de publicar
+## Lanzamiento
 
-- Política de privacidad. El formulario pide autorización para usar los datos (`CONSENT_TEXT` y `CONSENT_VERSION` en `lib/quote/options.ts`; si cambias el texto, cambia también la versión), pero no enlaza a ninguna política porque todavía no existe.
-- Proyecto Supabase PROD independiente, con las migraciones aplicadas, registro público desactivado, su propio administrador y sus variables solo en el entorno Production de Vercel.
-- Dominio verificado en Resend y `QUOTE_EMAIL_DELIVERY=all` en producción. Hasta entonces, las cotizaciones solo pueden enviarse a direcciones de la lista autorizada.
-- WhatsApp de contacto: pendiente. Cuando se configure en `lib/site.ts`, aparecerá en el sitio y en el PDF. El PDF solo muestra datos confirmados.
-- `QUOTE_EMAIL_REPLY_TO` de Production: está configurado en local y en Preview (`redcodepr@gmail.com`), pero no en Production.
+**Estado: pendiente.** El código está preparado, pero el formulario no se habilitará en Production hasta que se cumpla todo lo de "Bloqueantes". Cada punto está protegido en el código: si falta algo, el formulario se desactiva, no se abre.
+
+### Bloqueantes
+
+| Pendiente | Responsable | Comprobado por |
+| --- | --- | --- |
+| Política de privacidad definitiva (decisiones de conservación y eliminación) y `PRIVACY_POLICY` = `vigente` en [lib/privacy.ts](lib/privacy.ts) | Jeremy (decisiones), luego código | `isQuoteSubmissionEnabled()` no habilita el formulario en Production con la política en borrador |
+| Confirmar `redcode-prod` (`ylzygfcvycbwmcyzmefy`) como PROD y aplicar migraciones | Jeremy confirma; aplicación con `npm run prod:db` | `npm run prod:verify` |
+| Registro público desactivado en PROD y administrador PROD creado | Jeremy (panel de Supabase) | `npm run prod:verify` (registro) |
+| Widget de Turnstile de Production y sus variables en Vercel Production | Jeremy | La guarda rechaza claves de prueba; sin claves el formulario no se habilita |
+| Variables de Production en Vercel (lista abajo) | Jeremy | Guarda de entorno en build y arranque |
+| Dominio conectado en Vercel y DNS en Cloudflare | Jeremy | Comprobación HTTP y SSL |
+
+### Turnstile (anti-spam)
+
+- **Servidor:** en `/api/quote-requests`, después de validar los datos y de detectar reintentos de solicitudes ya guardadas, y antes de los límites de envío. Comprueba `success`, el `action` `quote_request` y el hostname esperado. Si el token falta, no es válido, caducó o Cloudflare no responde: `403 challenge_failed` y **no se guarda ni se envía nada**.
+- **Reintentos:** un reintento de una solicitud ya guardada (misma clave de idempotencia) devuelve la misma referencia sin pedir otro token. La verificación usa además la clave de idempotencia de Cloudflare, así que repetir la misma petición no "gasta" el token.
+- **Cliente:** el widget se renueva solo al caducar. Si falla, "Reintentar verificación" pide otro token sin recargar ni perder los datos.
+- **Claves de prueba oficiales de Cloudflare:** solo fuera de Production. Hoy Preview usa la pareja que siempre acepta, para que el widget aparezca. Con claves de prueba no se comprueban `action` ni hostname, porque las respuestas simuladas no los incluyen. Production rechaza las claves de prueba: falla el build y el formulario no se habilita.
+
+### Guardas de entorno
+
+[lib/deployment.ts](lib/deployment.ts) se ejecuta en `next build` / `next start` (`next.config.ts`) y al arrancar cada instancia (`instrumentation.ts`):
+
+| Entorno | Supabase permitido | Otras reglas |
+| --- | --- | --- |
+| Production (`VERCEL_ENV=production`) | Solo `SUPABASE_PROD_PROJECT_REF`; nunca DEV | Sin claves de prueba de Turnstile |
+| Preview | Solo DEV (`namtdzqeachgaldlbpmf`) | `QUOTE_EMAIL_DELIVERY` nunca `all` |
+| Local | Solo DEV | — |
+
+Una combinación incorrecta hace fallar el build o el arranque, con un mensaje que nombra variables y referencias, nunca valores secretos.
+
+### Supabase PROD
+
+Procedimiento preparado en [scripts/prod-db.ts](scripts/prod-db.ts):
+
+- Usa su propio directorio de trabajo, `.supabase-prod/` (ignorado por git), con su propio vínculo. El vínculo habitual del repo sigue en DEV y `npm run db:target` no cambia.
+- Exige que coincidan la referencia, `SUPABASE_PROD_PROJECT_REF` (de `.env.prod.local`) y el nombre `redcode-prod`.
+- Nunca ejecuta pruebas, datos de prueba ni copias de DEV.
+
+1. Crea `.env.prod.local` (ignorado por git) con las variables de PROD: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_PROD_PROJECT_REF`. Las claves secretas solo hacen falta si vas a usar `quote:retry-emails:prod`.
+2. `npm run prod:db -- check --ref=<ref>`: confirma el destino.
+3. `npm run prod:db -- migrate --ref=<ref>`: dry run; lista exactamente qué migraciones se aplicarían.
+4. `npm run prod:db -- migrate --ref=<ref> --apply --confirm=<ref>`: aplica. Las migraciones crean tablas, RLS, funciones y el bucket privado `quote-pdfs`.
+5. En el panel de PROD, **Authentication → Sign In / Providers**: desactiva **Allow new users to sign up**.
+6. `npm run prod:verify`: comprobaciones de solo lectura con la clave pública (tablas y funciones cerradas, bucket privado, registro desactivado). No crea nada.
+7. Administrador PROD:
+   - Crea el usuario en **Authentication → Users → Add user → Create new user**, con **Auto Confirm User**, para que no se envíe ningún email. La contraseña solo se escribe allí.
+   - En el **SQL Editor de PROD**, ejecuta:
+     ```sql
+     insert into public.admin_users (user_id)
+     select id from auth.users where email = 'redcodepr@gmail.com';
+     ```
+
+Reintentos de email en PROD: `npm run quote:retry-emails:prod -- --confirm-prod=<ref>`. Sin la confirmación, el script se niega a usar cualquier proyecto que no sea DEV.
+
+### Variables de Vercel Production
+
+Solo en el entorno **Production**, con valores **propios de PROD**. Nada de DEV.
+
+| Variable | Valor |
+| --- | --- |
+| `SUPABASE_URL` | `https://ylzygfcvycbwmcyzmefy.supabase.co` (si se confirma ese proyecto) |
+| `SUPABASE_PROD_PROJECT_REF` | `ylzygfcvycbwmcyzmefy` |
+| `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY` | Claves de PROD (*sensitive*) |
+| `QUOTE_RATE_LIMIT_SECRET` | Uno nuevo, distinto del de DEV y Preview |
+| `RESEND_API_KEY` | Recomendado: una clave propia de Production, de solo envío |
+| `QUOTE_EMAIL_FROM` | `RedCode Web Design Studio <cotizaciones@redcodewebdesign.com>` |
+| `QUOTE_NOTIFY_EMAIL`, `QUOTE_EMAIL_REPLY_TO` | `redcodepr@gmail.com` |
+| `QUOTE_EMAIL_DELIVERY` / `QUOTE_EMAIL_ALLOWLIST` | `allowlist` / `redcodepr@gmail.com` durante la prueba de lanzamiento; `all` solo después |
+| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Widget real de Production |
+| `TURNSTILE_EXPECTED_HOSTNAMES` | `redcodewebdesign.com,www.redcodewebdesign.com` |
+
+### Dominio y DNS (Cloudflare)
+
+- **Estado actual** (16 de octubre de 2026): el dominio no está añadido en Vercel. La raíz y `www` no tienen registros A, AAAA, CNAME ni MX, así que no hay nada publicado y no se recibe correo en el dominio.
+- **Canónico:** la raíz `https://redcodewebdesign.com`. `www` redirige con 308 (en `next.config.ts` y, al conectar, también en Vercel).
+- **Registros a crear** al añadir los dominios en Vercel. Usa los valores exactos que muestre Vercel:
+  - `A` `@` → la IP que indique Vercel (habitualmente `76.76.21.21`).
+  - `CNAME` `www` → el destino que indique Vercel (habitualmente `cname.vercel-dns.com`).
+  - Ambos con el proxy de Cloudflare **desactivado** ("DNS only", nube gris), para que Vercel emita el certificado.
+- **No tocar** los registros de Resend: `TXT resend._domainkey`, `MX` y `TXT send`, y `TXT _dmarc`.
+
+### Plan de lanzamiento
+
+1. Cerrar los bloqueantes de código: la política definitiva y las claves configuradas.
+2. PROD: confirmar el destino, aplicar las migraciones, desactivar el registro, crear el administrador y ejecutar `prod:verify`.
+3. Vercel Production: cargar las variables de la tabla, con `QUOTE_EMAIL_DELIVERY=allowlist`.
+4. Merge de `feature/cotizar` a `master`: se despliega en Production (`red-code-brown.vercel.app`). Comprobar que el build pasa la guarda y que `/cotizar` está habilitado.
+5. Conectar `redcodewebdesign.com` y `www` en Vercel y crear los registros en Cloudflare. Comprobar el certificado y la redirección de `www`.
+6. **Prueba de lanzamiento limitada:**
+   - Una solicitud desde `/cotizar` con el email `redcodepr@gmail.com`.
+   - Comprobar la fila en PROD y los dos emails.
+   - Entrar en `/admin` y finalizar una cotización de prueba.
+   - Enviarla a `redcodepr@gmail.com`.
+7. Si todo va bien: `QUOTE_EMAIL_DELIVERY=all`, volver a desplegar y comprobar de nuevo con un envío a `redcodepr@gmail.com`.
+
+### Reversión
+
+- **Código:**
+  - En Vercel, **Instant Rollback** al despliegue de Production anterior. Hoy es `942f032`, que no usa la base.
+  - O `git revert` del merge en `master`.
+  - Ninguna de las dos opciones toca datos.
+- **Cerrar el formulario sin desplegar código:** quita `TURNSTILE_SECRET_KEY` o `SUPABASE_URL` de Production y vuelve a desplegar. El formulario se desactiva solo.
+- **Emails:** vuelve a `QUOTE_EMAIL_DELIVERY=allowlist` y vuelve a desplegar.
+- **Base de datos:**
+  - Las migraciones solo añaden: no borran ni modifican datos existentes.
+  - No hay "rollback" destructivo. Un problema de esquema se corrige con una migración nueva, revisada y probada primero en DEV.
+  - El código anterior (`942f032`) no usa la base, así que revertir el código es compatible con el esquema nuevo.
+- **Dominio:** borra o cambia los registros `A`/`CNAME` de la raíz y de `www` en Cloudflare. No toques los de Resend.
+
+### Otros pendientes (no bloquean)
+
+- WhatsApp de contacto: cuando se configure en `lib/site.ts`, aparecerá en el sitio y en el PDF.
+- `npm audit`: quedan 5 avisos altos en la cadena de lint (`eslint-config-next` → `fast-glob`/`micromatch`/`braces`). Solo afectan a herramientas de desarrollo; `npm audit --omit=dev` = 0. npm solo propone bajar a la v14, que no corresponde.
+- Node local `22.20` frente a `24.x` en Vercel: ambos son compatibles con Next 16.3 (`>=20.9`). Algunas dependencias de prueba (`jsdom`) piden `22.22+`: conviene actualizar Node local.

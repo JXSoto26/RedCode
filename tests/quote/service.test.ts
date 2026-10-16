@@ -222,3 +222,63 @@ describe("submitQuoteRequest", () => {
     });
   });
 });
+
+describe("submitQuoteRequest with Turnstile", () => {
+  const verifier = (result: { ok: true } | { ok: false; reason: "missing" | "invalid" | "expired" | "mismatch" | "unavailable" }) => {
+    const verify = vi.fn(async () => result);
+    return { verify };
+  };
+
+  it.each(["missing", "invalid", "expired", "mismatch", "unavailable"] as const)(
+    "token %s: nothing is saved, no rate-limit hit, no email",
+    async (reason) => {
+      const t = setup();
+      const turnstile = verifier({ ok: false, reason });
+      const result = await submitQuoteRequest(envelope({ turnstileToken: "tok" }), ctx, { ...t.deps, turnstile });
+      expect(result).toEqual({ status: "challenge_failed", reason });
+      expect(t.rows).toHaveLength(0);
+      expect(t.hits.size).toBe(0);
+      expect(t.sent).toHaveLength(0);
+      expect(t.log).toHaveBeenCalledWith("quote_turnstile_rejected", { reason });
+    }
+  );
+
+  it("verifies the token with the client IP and the idempotency key, then saves", async () => {
+    const t = setup();
+    const turnstile = verifier({ ok: true });
+    const result = await submitQuoteRequest(envelope({ turnstileToken: "tok" }), ctx, { ...t.deps, turnstile });
+    expect(result.status).toBe("created");
+    expect(turnstile.verify).toHaveBeenCalledWith("tok", "203.0.113.7", KEY);
+    expect(t.rows).toHaveLength(1);
+  });
+
+  it("a retry of an already-saved request replays it without a new token", async () => {
+    const t = setup();
+    await submitQuoteRequest(envelope({ turnstileToken: "tok" }), ctx, { ...t.deps, turnstile: verifier({ ok: true }) });
+    const spent = verifier({ ok: false, reason: "expired" });
+    const retry = await submitQuoteRequest(envelope({ turnstileToken: "tok" }), ctx, { ...t.deps, turnstile: spent });
+    expect(retry.status).toBe("replayed");
+    expect(spent.verify).not.toHaveBeenCalled();
+    expect(t.rows).toHaveLength(1);
+  });
+
+  it("invalid data is reported before spending the token", async () => {
+    const t = setup();
+    const turnstile = verifier({ ok: true });
+    const result = await submitQuoteRequest(
+      envelope({ turnstileToken: "tok" }, validValues({ email: "no-es-email" })),
+      ctx,
+      { ...t.deps, turnstile }
+    );
+    expect(result.status).toBe("invalid");
+    expect(turnstile.verify).not.toHaveBeenCalled();
+  });
+
+  it("honeypot is still checked first", async () => {
+    const t = setup();
+    const turnstile = verifier({ ok: true });
+    const result = await submitQuoteRequest(envelope({ website: "spam", turnstileToken: "tok" }), ctx, { ...t.deps, turnstile });
+    expect(result.status).toBe("spam");
+    expect(turnstile.verify).not.toHaveBeenCalled();
+  });
+});

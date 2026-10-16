@@ -17,7 +17,10 @@
     "db:status": "npm run db:target && supabase migration list --linked",
     "db:push:dry": "npm run db:target && supabase db push --linked --dry-run",
     "db:push": "npm run db:target && supabase db push --linked",
-    "test:db": "npm run db:target && supabase db query --linked -f supabase/tests/admin_access.sql && supabase db query --linked -f supabase/tests/quote_sending.sql"
+    "test:db": "npm run db:target && supabase db query --linked -f supabase/tests/admin_access.sql && supabase db query --linked -f supabase/tests/quote_sending.sql",
+    "prod:db": "tsx --env-file=.env.prod.local scripts/prod-db.ts",
+    "prod:verify": "tsx --env-file=.env.prod.local scripts/prod-verify.ts",
+    "quote:retry-emails:prod": "tsx --conditions=react-server --env-file=.env.prod.local scripts/retry-quote-emails.ts"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.3.0",
@@ -28,7 +31,7 @@
     "fontkit": "2.0.4",
     "lucide-react": "^1.23.0",
     "motion": "^12.42.2",
-    "next": "16.2.10",
+    "next": "16.3.8",
     "pdfmake": "0.3.11",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -46,7 +49,7 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "6.1.1",
     "eslint": "^9",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.3.8",
     "jsdom": "30.1.1",
     "supabase": "2.121.0",
     "tailwindcss": "^4",
