@@ -7,19 +7,19 @@ const STEPS = [
     icon: MessagesSquare,
     step: "01",
     title: "Conversación inicial",
-    desc: "Me cuentas sobre tu negocio u organización, a quién quieres llegar y qué debe tener tu página.",
+    desc: "Nos cuentas sobre tu negocio u organización, a quién quieres llegar y qué debe tener tu página.",
   },
   {
     icon: FileText,
     step: "02",
     title: "Propuesta",
-    desc: "Preparo una cotización con el alcance del proyecto según lo que conversamos.",
+    desc: "Preparamos una cotización con el alcance del proyecto según lo que conversamos.",
   },
   {
     icon: PenTool,
     step: "03",
     title: "Diseño y desarrollo",
-    desc: "Diseño y construyo la página, y te muestro el avance para que puedas darme tus comentarios.",
+    desc: "Diseñamos y construimos la página, y te mostramos el avance para que puedas darnos tus comentarios.",
   },
   {
     icon: CheckCircle2,
@@ -34,9 +34,9 @@ export function Process() {
     <section id="proceso" className="relative py-24 md:py-32">
       <div className="container-page">
         <SectionHeading
-          eyebrow="Cómo trabajo"
+          eyebrow="Cómo trabajamos"
           title="Un proceso sencillo, de principio a fin"
-          description="Trabajas directamente conmigo en cada etapa, sin intermediarios."
+          description="Trabajas directamente con el estudio en cada etapa, sin intermediarios."
         />
 
         <RevealGroup className="relative mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">

@@ -81,7 +81,7 @@ export function quoteDocDefinition(q: QuoteForPdf) {
               fontSize: 16,
               bold: true,
             },
-            { text: `${site.owner} · ${site.location}`, color: MUTED, fontSize: 9.5, margin: [0, 3, 0, 0] },
+            { text: `Estudio de diseño web · ${site.location}`, color: MUTED, fontSize: 9.5, margin: [0, 3, 0, 0] },
             ...(contact ? [{ text: contact, color: MUTED, fontSize: 9.5 }] : []),
           ],
         },

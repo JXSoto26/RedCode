@@ -56,7 +56,7 @@ El flujo completo está en el README (secciones "Supabase DEV", "Pruebas", "Ento
 - No copies datos de DEV a PROD.
 
 ## Privacidad y conservación
-- La política (`lib/privacy.ts`) sigue en `borrador`. No la marques `vigente`, no fijes `effectiveDate` ni vacíes `PRIVACY_PENDING` sin que Jeremy apruebe el texto y confirme cada pendiente.
+- La política (`lib/privacy.ts`) sigue en `borrador`. No la marques `vigente`, no fijes `effectiveDate` ni vacíes `PRIVACY_PENDING` sin que el propietario apruebe el texto y confirme cada pendiente.
 - `npm run retention` / `retention:prod` solo en modo simulación (`plan`, o `erase --only=<id>` sin `--env`/`--confirm`) salvo orden explícita. **Nunca** ejecutes `execute` ni `erase` real sobre datos reales; en DEV solo sobre fixtures de prueba identificados.
 - No programes la revisión mensual (cron, Vercel Cron, pg_cron): es manual.
 - La eliminación solo pasa por `private.retention_begin`/`erasure_begin` + `retention_finish` (propietario, CLI). No concedas permisos sobre ellas a ningún rol de la API ni añadas un botón de borrar al panel.

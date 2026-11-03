@@ -1,6 +1,9 @@
 /**
  * Central business data for RedCode Web Design Studio.
  *
+ * The studio is presented only by its brand: there is deliberately no
+ * personal name here (see tests/brand.test.ts).
+ *
  * Fields left as `null` (or empty arrays) are pending confirmation. Anything
  * that depends on them — contact buttons, social links, sitemap, canonical
  * URLs — stays hidden until a real value is filled in here.
@@ -8,7 +11,6 @@
 export const site = {
   name: "RedCode Web Design Studio",
   shortName: "RedCode",
-  owner: "Jeremy Soto",
   location: "Puerto Rico",
 
   /**

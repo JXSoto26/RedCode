@@ -9,7 +9,7 @@ import { isQuoteSubmissionEnabled, turnstileSiteKey } from "@/lib/quote/config";
 export const metadata: Metadata = {
   title: "Solicitar cotización",
   description:
-    "Cuéntame sobre tu negocio y tu proyecto para preparar una cotización de tu página web.",
+    "Cuéntanos sobre tu negocio y tu proyecto para preparar una cotización de tu página web.",
   alternates: { canonical: "/cotizar" },
 };
 
@@ -29,7 +29,7 @@ export default async function QuotePage() {
             Solicita una <span className="text-gradient-brand">cotización</span>
           </h1>
           <p className="mt-5 max-w-2xl text-pretty text-base leading-relaxed text-muted sm:text-lg">
-            Cuéntame sobre tu negocio y tu proyecto. Con esta información preparo una propuesta según
+            Cuéntanos sobre tu negocio y tu proyecto. Con esta información preparamos una propuesta según
             lo que necesitas.
           </p>
 

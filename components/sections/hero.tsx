@@ -70,7 +70,7 @@ export function Hero({ quoteEnabled = false }: { quoteEnabled?: boolean }) {
             transition={{ duration: 0.6, ease, delay: 0.16 }}
             className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted"
           >
-            Soy {site.owner} y en {site.name} diseño y desarrollo páginas web
+            En {site.name} diseñamos y desarrollamos páginas web
             modernas y adaptadas a celulares para pequeños negocios,
             profesionales independientes e iglesias en {site.location}.
           </motion.p>

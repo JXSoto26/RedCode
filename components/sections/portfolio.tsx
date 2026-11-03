@@ -22,7 +22,7 @@ export function Portfolio() {
         <SectionHeading
           eyebrow="Portafolio"
           title="Proyectos realizados"
-          description="Algunas de las páginas que he diseñado y desarrollado."
+          description="Algunas de las páginas que hemos diseñado y desarrollado."
         />
 
         <RevealGroup className="mt-16 grid gap-5 md:grid-cols-2">

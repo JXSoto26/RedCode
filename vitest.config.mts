@@ -14,5 +14,8 @@ export default defineConfig({
     environment: "node",
     include: ["tests/**/*.test.{ts,tsx}"],
     exclude: [...configDefaults.exclude, "tests/dev/**"],
+    // The form tests drive a full multi-step UI in jsdom; with every file
+    // running in parallel on this machine they can exceed the 5 s default.
+    testTimeout: 20_000,
   },
 });

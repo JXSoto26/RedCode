@@ -4,7 +4,7 @@ import { createFakeMailer, createFakeRepo } from "./fakes";
 import { NOW, validValues } from "./fixtures";
 
 const KEY = "3f1c2b8e-6a1d-4c2e-9f3b-1a2b3c4d5e6f";
-const OWNER = "jeremy@example.com";
+const OWNER = "estudio@example.com";
 const keyN = (n: number) => `3f1c2b8e-6a1d-4c2e-9f3b-${String(n).padStart(12, "0")}`;
 
 function envelope(overrides: Record<string, unknown> = {}, data = validValues()) {

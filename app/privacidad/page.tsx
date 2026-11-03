@@ -96,7 +96,7 @@ export default async function PrivacyPage() {
 
           <Section title="1. Quién es el responsable">
             <p>
-              {site.name}, estudio de diseño web de {site.owner} en {site.location}. Para cualquier asunto sobre tus
+              {site.name}, estudio de diseño web ubicado en {site.location}. Para cualquier asunto sobre tus
               datos personales, escribe a {mail}.
             </p>
           </Section>

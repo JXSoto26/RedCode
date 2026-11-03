@@ -530,7 +530,7 @@ export function QuoteForm({
             <QuoteSummary values={values} onEdit={handleEdit} />
             <div className="rounded-xl border border-border bg-surface-2 p-5 text-sm leading-relaxed text-foreground/90">
               Enviar esta solicitud <strong>no constituye una cotización ni reserva una fecha</strong>.
-              Revisaré la información y me comunicaré contigo para conversar sobre el alcance del proyecto.
+              Revisaremos la información y nos comunicaremos contigo para conversar sobre el alcance del proyecto.
             </div>
             <CheckboxField
               id="consent"

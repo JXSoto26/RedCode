@@ -17,7 +17,7 @@ const FOOTER_LINKS = [
     links: [
       { label: "Para quién", href: "/#para-quien", show: true },
       { label: "Proyectos", href: "/#proyectos", show: PROJECTS.length > 0 },
-      { label: "Cómo trabajo", href: "/#proceso", show: true },
+      { label: "Cómo trabajamos", href: "/#proceso", show: true },
       { label: "Cotización", href: "/#cotizacion", show: true },
       { label: "Solicitar cotización", href: "/cotizar", show: isQuoteSubmissionEnabled() },
       { label: "Contacto", href: "/#contacto", show: hasContact },
@@ -35,7 +35,7 @@ export function Footer() {
             <Logo />
             <p className="mt-4 text-sm leading-relaxed text-muted">
               {site.name} es un estudio independiente de diseño web en{" "}
-              {site.location}, dirigido por {site.owner}.
+              {site.location}.
             </p>
             {site.socials.length > 0 && (
               <ul className="mt-6 flex flex-wrap gap-x-4 gap-y-2">

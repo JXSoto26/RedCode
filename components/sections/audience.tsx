@@ -28,7 +28,7 @@ export function Audience() {
         <SectionHeading
           eyebrow="Para quién"
           title="Pensado para negocios y organizaciones en Puerto Rico"
-          description="No necesitas conocimientos técnicos. Te explico cada paso en palabras sencillas, desde la primera conversación hasta la entrega."
+          description="No necesitas conocimientos técnicos. Te explicamos cada paso en palabras sencillas, desde la primera conversación hasta la entrega."
         />
 
         <RevealGroup className="mt-16 grid gap-5 lg:grid-cols-3">

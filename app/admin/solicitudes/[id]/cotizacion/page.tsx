@@ -96,7 +96,7 @@ export default async function QuotePreviewPage({ params }: { params: Promise<{ i
                   <span className="text-[#d20e1c]">Red</span>Code Web Design Studio
                 </p>
                 <p className="text-sm text-zinc-500">
-                  {site.owner} · {site.location}
+                  Estudio de diseño web · {site.location}
                 </p>
               </div>
               <div className="text-right text-sm">

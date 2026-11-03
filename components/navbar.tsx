@@ -16,7 +16,7 @@ const NAV_LINKS = [
   { label: "Servicios", href: "/#servicios", show: true },
   { label: "Para quién", href: "/#para-quien", show: true },
   { label: "Proyectos", href: "/#proyectos", show: PROJECTS.length > 0 },
-  { label: "Cómo trabajo", href: "/#proceso", show: true },
+  { label: "Cómo trabajamos", href: "/#proceso", show: true },
   { label: "Cotización", href: "/#cotizacion", show: true },
   { label: "Contacto", href: "/#contacto", show: hasContact },
 ].filter((link) => link.show);

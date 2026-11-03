@@ -6,7 +6,7 @@ const message = {
   subject: "Asunto",
   text: "Hola",
   html: "<p>Hola</p>",
-  replyTo: "jeremy@example.com",
+  replyTo: "estudio@example.com",
   idempotencyKey: "quote-123-visitor",
 };
 
@@ -20,7 +20,7 @@ describe("createResendMailer", () => {
     const headers = init.headers as Record<string, string>;
     expect(headers.Authorization).toBe("Bearer re_test");
     expect(headers["Idempotency-Key"]).toBe("quote-123-visitor");
-    expect(JSON.parse(init.body as string)).toMatchObject({ to: ["ana@example.com"], reply_to: "jeremy@example.com" });
+    expect(JSON.parse(init.body as string)).toMatchObject({ to: ["ana@example.com"], reply_to: "estudio@example.com" });
   });
 
   it("sends an explicit sender, reply_to and attachments exactly as given", async () => {

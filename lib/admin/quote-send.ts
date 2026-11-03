@@ -102,9 +102,9 @@ export function defaultQuoteEmail(q: QuoteEmailContext, canReply: boolean) {
   const subject = `Cotización ${q.quoteReference} · ${site.name}`;
   const body = [
     `Hola, ${q.contactName}:`,
-    `Te envío la cotización ${q.quoteReference} (revisión ${q.revision}) para ${q.businessName}. La encontrarás adjunta en PDF.`,
+    `Te enviamos la cotización ${q.quoteReference} (revisión ${q.revision}) para ${q.businessName}. La encontrarás adjunta en PDF.`,
     ...(canReply ? ["Si tienes preguntas o quieres ajustar algo, puedes responder a este email."] : []),
-    `${site.owner}\n${site.name}`,
+    site.name,
   ].join("\n\n");
   return { subject, body };
 }

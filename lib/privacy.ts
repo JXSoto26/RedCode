@@ -17,7 +17,7 @@ export const PRIVACY_POLICY = {
  * once the text is updated with the confirmed answer.
  */
 export const PRIVACY_PENDING = {
-  review: "Aprobación final del texto por Jeremy.",
+  review: "Aprobación final del texto.",
 } as Record<string, string>;
 
 /**

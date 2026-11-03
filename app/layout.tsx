@@ -40,8 +40,8 @@ export const metadata: Metadata = {
     "iglesias",
     site.name,
   ],
-  authors: [{ name: site.owner }],
-  creator: site.owner,
+  authors: [{ name: site.name }],
+  creator: site.name,
   openGraph: {
     type: "website",
     locale: "es_PR",

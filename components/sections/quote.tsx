@@ -19,7 +19,7 @@ export function Quote({ quoteEnabled = false }: { quoteEnabled?: boolean }) {
         <SectionHeading
           eyebrow="Cotización"
           title="Una propuesta según lo que necesitas"
-          description="No trabajo con paquetes fijos. Cada proyecto se cotiza de acuerdo con su alcance."
+          description="No trabajamos con paquetes fijos. Cada proyecto se cotiza de acuerdo con su alcance."
         />
 
         <Reveal className="mx-auto mt-16 max-w-2xl">
@@ -40,7 +40,7 @@ export function Quote({ quoteEnabled = false }: { quoteEnabled?: boolean }) {
             </ul>
 
             <p className="mt-6 text-sm leading-relaxed text-muted">
-              Después de conversar sobre tu proyecto, te envío una propuesta con
+              Después de conversar sobre tu proyecto, te enviamos una propuesta con
               lo que incluye y su costo antes de comenzar.
             </p>
 

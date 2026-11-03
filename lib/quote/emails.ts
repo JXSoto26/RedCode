@@ -105,16 +105,16 @@ export function visitorConfirmationEmail(reference: string, d: QuoteRequestData,
   const { text, html } = render(
     [
       `Hola, ${d.contactName}:`,
-      `Recibí tu solicitud de cotización en ${site.name}. Este es un resumen breve de lo que enviaste.`,
+      `Recibimos tu solicitud de cotización en ${site.name}. Este es un resumen breve de lo que enviaste.`,
     ],
     rows,
     [
-      "Este mensaje solo confirma que recibí tu solicitud. No constituye una cotización ni reserva una fecha.",
+      "Este mensaje solo confirma que recibimos tu solicitud. No constituye una cotización ni reserva una fecha.",
       ...(canReply ? ["Si quieres añadir información, puedes responder a este email."] : []),
-      `${site.owner} · ${site.name} · ${site.location}`,
+      `${site.name} · ${site.location}`,
     ]
   );
-  return { subject: oneLine(`Recibí tu solicitud de cotización (${reference})`), text, html };
+  return { subject: oneLine(`Recibimos tu solicitud de cotización (${reference})`), text, html };
 }
 
 export function ownerNotificationEmail(reference: string, d: QuoteRequestData) {

@@ -16,7 +16,7 @@ const SERVICES = [
   {
     icon: RefreshCw,
     title: "Rediseño de páginas web",
-    desc: "Si tu página actual se ve anticuada o es difícil de usar en el celular, la renuevo con un diseño más claro y actual.",
+    desc: "Si tu página actual se ve anticuada o es difícil de usar en el celular, la renovamos con un diseño más claro y actual.",
   },
 ];
 

@@ -5,7 +5,7 @@ import { Reveal } from "@/components/motion/reveal";
 import { emailHref, hasContact, site, whatsappHref } from "@/lib/site";
 
 const CONTACT_INFO = [
-  { icon: UserRound, label: "Atención", value: `Directa con ${site.owner}` },
+  { icon: UserRound, label: "Atención", value: "Directa, sin intermediarios" },
   { icon: MapPin, label: "Ubicación", value: site.location },
 ];
 
@@ -29,7 +29,7 @@ export function Contact() {
               <span className="text-gradient-brand">página web</span>
             </h2>
             <p className="mt-5 max-w-md text-pretty text-base leading-relaxed text-muted sm:text-lg">
-              Cuéntame qué necesitas y te preparo una cotización según el
+              Cuéntanos qué necesitas y te preparamos una cotización según el
               alcance de tu proyecto.
             </p>
 
@@ -55,7 +55,7 @@ export function Contact() {
           {/* Right: direct contact options */}
           <Reveal delay={0.1}>
             <div className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-7 sm:p-8">
-              <h3 className="text-xl font-semibold">Escríbeme directamente</h3>
+              <h3 className="text-xl font-semibold">Escríbenos directamente</h3>
               <p className="text-sm leading-relaxed text-muted">
                 Elige el medio que te resulte más cómodo.
               </p>
