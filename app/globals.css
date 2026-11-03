@@ -24,6 +24,14 @@
   --color-brand-800: #911018;
   --color-brand-900: #78141a;
 
+  /* Success state (emerald). Brand red stays for navigation, headings and
+     primary actions; red as a status color is only for real errors. */
+  --color-success-100: #d1fae5;
+  --color-success-200: #a7f3d0;
+  --color-success-300: #6ee7b7;
+  --color-success-400: #34d399;
+  --color-success-500: #10b981;
+
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Mail, MailWarning } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -640,36 +640,56 @@ function Progress({ step }: { step: Step }) {
   );
 }
 
-function QuoteSuccess({ done, headingRef }: { done: Done; headingRef: React.RefObject<HTMLHeadingElement | null> }) {
-  const emailMessage =
-    done.visitorEmail === "enviado"
-      ? `Te envié un email de confirmación a ${done.values.email.trim()}.`
-      : done.visitorEmail === "fallido"
-        ? "Tu solicitud quedó guardada, pero no pude enviar el email de confirmación. No necesitas enviarla de nuevo; guarda tu referencia."
-        : "Tu solicitud quedó guardada. No se envió un email de confirmación, así que te recomiendo guardar tu referencia.";
+/**
+ * The request is saved whenever this screen shows, so it is always a green
+ * success. The confirmation email is reported separately: "enviado" only
+ * means the provider accepted it, never that it was delivered.
+ */
+export function QuoteSuccess({ done, headingRef }: { done: Done; headingRef: React.RefObject<HTMLHeadingElement | null> }) {
+  const accepted = done.visitorEmail === "enviado";
+  const emailNotice = accepted
+    ? `Enviamos un email de confirmación a ${done.values.email.trim()}. Puede tardar unos minutos; si no lo ves, revisa la carpeta de spam.`
+    : done.visitorEmail === "fallido"
+      ? "No pudimos enviar el email de confirmación. Tu solicitud quedó guardada: no hace falta enviarla de nuevo. Guarda tu referencia."
+      : "No se envió un email de confirmación. Tu solicitud quedó guardada: no hace falta enviarla de nuevo. Guarda tu referencia.";
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start gap-4">
-        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-brand-600/15 text-brand-400">
+        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-success-500/15 text-success-400 ring-1 ring-success-400/30">
           <CheckCircle2 className="size-6" aria-hidden="true" />
         </span>
         <div>
           <h2 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold tracking-tight focus:outline-none">
             Solicitud recibida
           </h2>
-          <p className="mt-2 text-sm text-muted">{emailMessage}</p>
+          <p className="mt-2 text-sm font-medium text-success-300">Guardamos tu solicitud correctamente.</p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-brand-600/50 bg-brand-600/10 p-5">
-        <p className="text-sm text-muted">Tu referencia</p>
-        <p className="mt-1 font-mono text-2xl font-bold tracking-wider">{done.reference}</p>
+      <div className="rounded-xl border border-success-400/40 bg-success-500/[0.08] p-5">
+        <p className="text-sm text-success-100/80">Tu referencia</p>
+        <p className="mt-1 font-mono text-2xl font-bold tracking-wider text-success-200">{done.reference}</p>
       </div>
 
+      {accepted ? (
+        <p className="flex items-start gap-2.5 text-sm leading-relaxed text-muted">
+          <Mail className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <span>{emailNotice}</span>
+        </p>
+      ) : (
+        <p
+          role="note"
+          className="flex items-start gap-2.5 rounded-xl border border-amber-400/30 bg-amber-400/[0.06] p-4 text-sm leading-relaxed text-amber-100"
+        >
+          <MailWarning className="mt-0.5 size-4 shrink-0 text-amber-300" aria-hidden="true" />
+          <span>{emailNotice}</span>
+        </p>
+      )}
+
       <p className="rounded-xl border border-border bg-surface-2 p-5 text-sm leading-relaxed text-foreground/90">
-        Esta solicitud no constituye una cotización ni reserva una fecha. Revisaré la información y me
-        comunicaré contigo para conversar sobre el alcance del proyecto.
+        Esta solicitud no constituye una cotización ni reserva una fecha. Revisaremos la información y nos
+        comunicaremos contigo para conversar sobre el alcance del proyecto.
       </p>
 
       <div>

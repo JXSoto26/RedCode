@@ -165,18 +165,28 @@ describe("QuoteForm", () => {
     resolve(ok());
     expect(await screen.findByRole("heading", { name: "Solicitud recibida" })).toBeTruthy();
     expect(screen.getByText("RC-7K2M-9QXD")).toBeTruthy();
-    expect(screen.getByText(/Te envié un email de confirmación a ana@example.com/)).toBeTruthy();
+    expect(screen.getByText("Guardamos tu solicitud correctamente.")).toBeTruthy();
+    expect(screen.getByText(/Enviamos un email de confirmación a ana@example.com/)).toBeTruthy();
+    // Accepted by the provider is not delivered: no delivery claim.
+    expect(screen.queryByText(/entregado|recibirás|llegó a tu/i)).toBeNull();
+    expect(screen.queryByRole("note")).toBeNull();
     expect(screen.getByText("Panadería de Prueba")).toBeTruthy();
   });
 
-  it("does not announce a confirmation email that was not sent", async () => {
-    mockFetch(ok("fallido"));
-    render(<QuoteForm enabled />);
-    await reachSummary(user);
-    await user.click(submitButton());
-    expect(await screen.findByText(/no pude enviar el email de confirmación. No necesitas enviarla de nuevo/)).toBeTruthy();
-    expect(screen.queryByText(/Te envié un email/)).toBeNull();
-  });
+  it.each(["fallido", "omitido"] as const)(
+    "keeps the success when the confirmation email is %s and says so separately",
+    async (status) => {
+      mockFetch(ok(status));
+      render(<QuoteForm enabled />);
+      await reachSummary(user);
+      await user.click(submitButton());
+      expect(await screen.findByRole("heading", { name: "Solicitud recibida" })).toBeTruthy();
+      expect(screen.getByText("Guardamos tu solicitud correctamente.")).toBeTruthy();
+      const note = screen.getByRole("note");
+      expect(note.textContent).toMatch(/Tu solicitud quedó guardada: no hace falta enviarla de nuevo/);
+      expect(screen.queryByText(/Enviamos un email/)).toBeNull();
+    }
+  );
 
   it("keeps the data after a server failure and retries with the same idempotency key", async () => {
     const fetchMock = mockFetch(Response.json({ error: "persist_failed" }, { status: 503 }), ok());
