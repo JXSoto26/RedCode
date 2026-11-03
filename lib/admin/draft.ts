@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CATALOG_CODE, CATALOG_LIMITS, type CatalogItemFields } from "./catalog";
 import { centsToInput, hundredthsToDecimal, parseQuantity, parseUsdToCents, type MoneyItem } from "./money";
 
 /**
@@ -30,8 +31,8 @@ export type DraftText = {
   validity: string;
 };
 
-/** Item as typed in the editor: raw strings, parsed on the server. */
-export type DraftItemInput = { description: string; quantity: string; unitPrice: string };
+/** Item as typed in the editor: raw strings, parsed on the server. Catalog fields are internal. */
+export type DraftItemInput = { description: string; quantity: string; unitPrice: string } & CatalogItemFields;
 
 const text = (max: number, label: string) =>
   z.string().max(max, `${label}: máximo ${max} caracteres.`);
@@ -46,11 +47,19 @@ const draftTextSchema = z.object({
   validity: text(DRAFT_LIMITS.validity, "Vigencia"),
 });
 
-const itemSchema = z.object({
-  description: z.string().max(DRAFT_LIMITS.itemDescription),
-  quantity: z.string().max(20),
-  unitPrice: z.string().max(20),
-});
+const note = z.string().max(CATALOG_LIMITS.note, `Notas internas: máximo ${CATALOG_LIMITS.note} caracteres.`);
+
+const itemSchema = z
+  .object({
+    description: z.string().max(DRAFT_LIMITS.itemDescription),
+    quantity: z.string().max(20),
+    unitPrice: z.string().max(20),
+    catalogCode: z.string().regex(CATALOG_CODE).optional(),
+    catalogVersion: z.number().int().min(1).optional(),
+    suggestionReason: note.optional(),
+    adjustmentNote: note.optional(),
+  })
+  .refine((i) => (i.catalogCode === undefined) === (i.catalogVersion === undefined), "Partida del catálogo incompleta.");
 
 const saveSchema = z.object({
   requestId: z.uuid(),
@@ -65,7 +74,15 @@ export type DraftRpcPayload = {
   p_request_id: string;
   p_expected_version: number | null;
   p_draft: Record<keyof DraftText, string>;
-  p_items: { description: string | null; quantity: string | null; unitPriceCents: number | null }[];
+  p_items: {
+    description: string | null;
+    quantity: string | null;
+    unitPriceCents: number | null;
+    catalogCode: string | null;
+    catalogVersion: number | null;
+    suggestionReason: string | null;
+    adjustmentNote: string | null;
+  }[];
 };
 
 export type ParsedDraft =
@@ -94,6 +111,10 @@ export function parseDraftSave(input: unknown): ParsedDraft {
       description: description || null,
       quantity: quantity == null ? null : hundredthsToDecimal(quantity),
       unitPriceCents: cents ?? null,
+      catalogCode: item.catalogCode ?? null,
+      catalogVersion: item.catalogVersion ?? null,
+      suggestionReason: item.suggestionReason?.trim() || null,
+      adjustmentNote: item.adjustmentNote?.trim() || null,
     });
   });
   if (errors.length) return { ok: false, errors };
@@ -120,7 +141,13 @@ export type StoredDraft = {
   terms: string | null;
   validity: string | null;
   updatedAt: string;
-  items: (MoneyItem & { id: string })[];
+  items: (MoneyItem & {
+    id: string;
+    catalogCode?: string | null;
+    catalogVersion?: number | null;
+    suggestionReason?: string | null;
+    adjustmentNote?: string | null;
+  })[];
 };
 
 /**
@@ -153,5 +180,13 @@ export function toEditorItems(draft: StoredDraft | null): DraftItemInput[] {
     quantity:
       item.quantityHundredths === null ? "" : hundredthsToDecimal(item.quantityHundredths).replace(/\.00$/, ""),
     unitPrice: centsToInput(item.unitPriceCents),
+    ...(item.catalogCode && item.catalogVersion
+      ? {
+          catalogCode: item.catalogCode,
+          catalogVersion: item.catalogVersion,
+          suggestionReason: item.suggestionReason ?? "",
+          adjustmentNote: item.adjustmentNote ?? "",
+        }
+      : {}),
   }));
 }

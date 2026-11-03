@@ -24,9 +24,10 @@ describe("parseDraftSave", () => {
         { description: "", quantity: "", unitPrice: "" },
       ],
     });
+    const noCatalog = { catalogCode: null, catalogVersion: null, suggestionReason: null, adjustmentNote: null };
     expect(r.ok && r.payload.p_items).toEqual([
-      { description: "Diseño", quantity: "1.50", unitPriceCents: 125_050 },
-      { description: "Sin precio", quantity: "2.00", unitPriceCents: null },
+      { description: "Diseño", quantity: "1.50", unitPriceCents: 125_050, ...noCatalog },
+      { description: "Sin precio", quantity: "2.00", unitPriceCents: null, ...noCatalog },
     ]);
   });
 

@@ -154,7 +154,7 @@ export async function getRequestDetail(id: string): Promise<RequestDetail | null
     supabase
       .from("quote_drafts")
       .select(
-        "id, version, title, summary, deliverables, exclusions, estimated_time, terms, validity, updated_at, quote_draft_items(id, position, description, quantity::text, unit_price_cents)"
+        "id, version, title, summary, deliverables, exclusions, estimated_time, terms, validity, updated_at, quote_draft_items(id, position, description, quantity::text, unit_price_cents, catalog_code, catalog_version, suggestion_reason, adjustment_note)"
       )
       .eq("quote_request_id", id)
       .maybeSingle(),
@@ -226,6 +226,10 @@ type DraftRow = {
     description: string | null;
     quantity: string | null;
     unit_price_cents: number | null;
+    catalog_code?: string | null;
+    catalog_version?: number | null;
+    suggestion_reason?: string | null;
+    adjustment_note?: string | null;
   }[];
 };
 
@@ -248,6 +252,10 @@ export function toStoredDraft(d: DraftRow): StoredDraft {
         description: i.description,
         quantityHundredths: i.quantity === null ? null : decimalToHundredths(i.quantity),
         unitPriceCents: i.unit_price_cents === null ? null : Number(i.unit_price_cents),
+        catalogCode: i.catalog_code ?? null,
+        catalogVersion: i.catalog_version ?? null,
+        suggestionReason: i.suggestion_reason ?? null,
+        adjustmentNote: i.adjustment_note ?? null,
       })),
   };
 }

@@ -11,6 +11,8 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { StatusForm } from "@/components/admin/status-form";
 import { Button } from "@/components/ui/button";
 import { requireAdmin } from "@/lib/admin/auth";
+import { catalogOrigins, listCatalog } from "@/lib/admin/catalog-data";
+import { suggestForRequest } from "@/lib/admin/catalog-rules";
 import { getRequestDetail } from "@/lib/admin/data";
 import { pendingFields, toEditorItems } from "@/lib/admin/draft";
 import {
@@ -60,7 +62,9 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const whatsapp = whatsappLink(data.whatsapp);
   const pending = pendingFields(draft);
   const savedTotal = draft ? computeTotals(draft.items) : null;
-  const quotes = await listQuotesForRequest(request.id);
+  const [quotes, catalog, origins] = await Promise.all([listQuotesForRequest(request.id), listCatalog(), catalogOrigins()]);
+  const activeCatalog = catalog.filter((e) => e.active);
+  const suggestions = suggestForRequest(data, catalog);
   const problems = finalizeProblems(draft);
   const alreadyFinalized = draft ? quotes.find((q) => q.draftVersion === draft.version) : undefined;
   const nextRevision = (quotes[0]?.revision ?? 0) + 1;
@@ -168,6 +172,9 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
               }}
               items={toEditorItems(draft)}
               savedTotal={savedTotal}
+              catalog={activeCatalog}
+              suggestions={suggestions}
+              origins={origins}
             />
           </Section>
 

@@ -6,9 +6,12 @@ import Link from "next/link";
 import { Eye, Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fieldClass } from "@/components/quote/fields";
+import { CatalogPicker } from "@/components/admin/catalog-picker";
 import { saveDraft, type DraftState } from "@/lib/admin/actions";
+import { CATALOG_LIMITS, originKey, type CatalogEntry, type CatalogOrigin } from "@/lib/admin/catalog";
+import type { Suggestion } from "@/lib/admin/catalog-rules";
 import { DRAFT_LIMITS, type DraftItemInput, type DraftText } from "@/lib/admin/draft";
-import { formatCents } from "@/lib/admin/money";
+import { formatCents, parseUsdToCents } from "@/lib/admin/money";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -17,6 +20,11 @@ type Props = {
   text: DraftText;
   items: DraftItemInput[];
   savedTotal: { totalCents: number; incomplete: boolean } | null;
+  /** Active catalog entries (latest versions). */
+  catalog: CatalogEntry[];
+  suggestions: Suggestion[];
+  /** Title/price of every catalog version, keyed "<code>@<version>". */
+  origins: Record<string, CatalogOrigin>;
 };
 
 type Row = DraftItemInput & { key: number };
@@ -35,7 +43,7 @@ function Optional() {
   return <span className="font-normal text-muted-2"> (opcional)</span>;
 }
 
-export function DraftEditor({ requestId, version, text, items, savedTotal }: Props) {
+export function DraftEditor({ requestId, version, text, items, savedTotal, catalog, suggestions, origins }: Props) {
   const initialState: DraftState = {
     ok: false,
     errors: [],
@@ -69,12 +77,16 @@ export function DraftEditor({ requestId, version, text, items, savedTotal }: Pro
     setFields((f) => ({ ...f, [name]: e.target.value }));
     setDirty(true);
   };
-  const setRow = (key: number, name: keyof DraftItemInput, value: string) => {
+  const setRow = (key: number, name: "description" | "quantity" | "unitPrice" | "adjustmentNote", value: string) => {
     setRows((r) => r.map((row) => (row.key === key ? { ...row, [name]: value } : row)));
     setDirty(true);
   };
   const addRow = () => {
     setRows((r) => [...r, { key: nextKey.current++, description: "", quantity: "", unitPrice: "" }]);
+    setDirty(true);
+  };
+  const addCatalogRow = (line: DraftItemInput) => {
+    setRows((r) => [...r, { ...line, key: nextKey.current++ }]);
     setDirty(true);
   };
   const removeRow = (key: number) => {
@@ -86,7 +98,8 @@ export function DraftEditor({ requestId, version, text, items, savedTotal }: Pro
     requestId,
     expectedVersion: state.version,
     draft: fields,
-    items: rows.map(({ description, quantity, unitPrice }) => ({ description, quantity, unitPrice })),
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    items: rows.map(({ key, ...item }) => item),
   });
 
   const textField = (name: keyof DraftText, label: string, opts: { multiline?: boolean; optional?: boolean; hint?: string }) => {
@@ -196,11 +209,22 @@ export function DraftEditor({ requestId, version, text, items, savedTotal }: Pro
                       <span className="sm:sr-only">Quitar</span>
                     </Button>
                   </div>
+                  {row.catalogCode && row.catalogVersion && (
+                    <CatalogOriginInfo row={row} origin={origins[originKey(row.catalogCode, row.catalogVersion)]} onNote={(v) => setRow(row.key, "adjustmentNote", v)} />
+                  )}
                 </li>
               );
             })}
           </ol>
         )}
+
+        <CatalogPicker
+          catalog={catalog}
+          suggestions={suggestions}
+          lines={rows}
+          full={rows.length >= DRAFT_LIMITS.items}
+          onAdd={addCatalogRow}
+        />
 
         <div>
           <Button
@@ -272,5 +296,36 @@ export function DraftEditor({ requestId, version, text, items, savedTotal }: Pro
         </p>
       </div>
     </form>
+  );
+}
+
+/** Internal origin of a catalog line: never shown to the client. */
+function CatalogOriginInfo({ row, origin, onNote }: { row: Row; origin: CatalogOrigin | undefined; onNote: (v: string) => void }) {
+  const current = parseUsdToCents(row.unitPrice);
+  const adjusted = origin && typeof current === "number" && origin.priceCents !== null && current !== origin.priceCents;
+  const id = `item-${row.key}-adjustment`;
+  return (
+    <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3 text-xs text-muted-2">
+      <p>
+        Catálogo: {origin?.title ?? row.catalogCode} · versión {row.catalogVersion} · precio de origen{" "}
+        {origin?.priceCents == null ? "sin precio (evaluación manual)" : formatCents(origin.priceCents)}
+        {adjusted && <span className="ml-2 text-amber-200">Precio ajustado a mano</span>}
+      </p>
+      {row.suggestionReason && <p>Motivo de la sugerencia: {row.suggestionReason}</p>}
+      {(adjusted || row.adjustmentNote) && (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={id} className="font-medium text-muted">
+            Motivo del ajuste <span className="font-normal text-muted-2">(interno, opcional)</span>
+          </label>
+          <input
+            id={id}
+            value={row.adjustmentNote ?? ""}
+            onChange={(e) => onNote(e.target.value)}
+            maxLength={CATALOG_LIMITS.note}
+            className={fieldClass}
+          />
+        </div>
+      )}
+    </div>
   );
 }

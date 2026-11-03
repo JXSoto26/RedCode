@@ -1,0 +1,40 @@
+import type { CatalogEntry, CatalogKind } from "@/lib/admin/catalog";
+
+// Same codes and prices as the initial catalog (supabase/migrations/*_price_catalog.sql).
+const SEED: [string, CatalogKind, number | null, boolean?][] = [
+  ["base_landing", "base", 65000],
+  ["base_informativa", "base", 120000],
+  ["base_rediseno", "base", 80000, true],
+  ["base_orientacion", "base", null, true],
+  ["seccion_adicional", "adicional", 7500],
+  ["pagina_adicional", "adicional", 15000],
+  ["galeria", "adicional", 10000],
+  ["catalogo_productos", "adicional", 20000],
+  ["eventos", "adicional", 10000],
+  ["formulario", "adicional", 15000],
+  ["cms_basico", "adicional", 50000],
+  ["cms_coleccion", "adicional", 20000],
+  ["edicion_textos", "adicional", 10000],
+  ["redaccion", "adicional", 25000],
+  ["optimizacion_fotos", "adicional", 7500],
+  ["manual_logo", "manual", null, true],
+  ["manual_fotografia", "manual", null, true],
+  ["manual_integraciones", "manual", null, true],
+  ["manual_especial", "manual", null, true],
+];
+export const CATALOG: CatalogEntry[] = SEED.map(([code, kind, priceCents, requiresReview = false], i) => ({
+  code,
+  version: 1,
+  kind,
+  title: code,
+  unit: "u",
+  priceCents,
+  scope: "",
+  includes: "",
+  excludes: "",
+  requiresReview,
+  active: true,
+  position: i,
+  createdAt: "2026-11-03T00:00:00Z",
+  createdByEmail: "",
+}));

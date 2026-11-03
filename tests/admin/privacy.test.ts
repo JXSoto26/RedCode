@@ -36,3 +36,20 @@ describe("privacy of internal notes and drafts", () => {
     expect(offending).toEqual([]);
   });
 });
+
+describe("privacy of the price catalog", () => {
+  const CATALOG_NAMES = /price_catalog|catalog_code|catalog_version|catalog_price|suggestion_reason|adjustment_note|catalog-rules|catalogCode|suggestionReason|adjustmentNote/;
+
+  it.each(PUBLIC_CODE)("%s never references the catalog or its internal notes", (path) => {
+    const full = join(process.cwd(), path);
+    const offending = (statSync(full).isDirectory() ? files(full) : [full]).filter((f) => CATALOG_NAMES.test(readFileSync(f, "utf8")));
+    expect(offending).toEqual([]);
+  });
+
+  it.each(["lib/admin/quote-pdf.ts", "lib/admin/quote-send.ts", "lib/quote/emails.ts"])(
+    "%s (what the client receives) shows only the approved items",
+    (path) => {
+      expect(readFileSync(join(process.cwd(), path), "utf8")).not.toMatch(CATALOG_NAMES);
+    }
+  );
+});

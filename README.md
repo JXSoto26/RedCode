@@ -208,6 +208,12 @@ La migración inicial crea `quote_requests` y `quote_rate_limits` con RLS activa
   - "No aparece: no se envió". Así queda como fallido y se puede enviar de nuevo.
 - Si Resend aceptó el email pero la base no pudo registrarlo, el envío queda "en proceso". Pasados 2 minutos aparece como "sin respuesta registrada" y se resuelve igual: "Repetir envío con la misma clave" no lo duplica.
 
+### Catálogo de precios (privado)
+
+- **`/admin/catalogo`:** precios sugeridos en USD (centavos en la base), alcance, inclusiones y exclusiones; activar o desactivar elementos. Guardar crea una **versión nueva** del elemento (`price_catalog_entries`, inmutable): los borradores y las cotizaciones finalizadas conservan la versión que usaron. Solo administradores (RLS); se escribe solo con `admin_save_catalog_entry`. No es público ni aparece en la web, los PDF o los emails.
+- **Editor de borradores → "Añadir desde catálogo":** sugerencias según las respuestas del formulario (reglas fijas en [lib/admin/catalog-rules.ts](lib/admin/catalog-rules.ts), con motivo) y el catálogo completo. Nada se añade sin un clic; un elemento repetido o un segundo servicio base piden un segundo clic. Cada partida queda editable y guarda código, versión, motivo de la sugerencia y, si cambias el precio, un motivo de ajuste interno. Al finalizar, se copian a `quote_items` junto con el precio de origen.
+- **Reglas:** WhatsApp, mapa y las secciones incluidas no generan cargo; "Necesito ayuda" con logo, textos o fotos solo genera revisiones; productos y eventos son estáticos salvo que pidan contenido editable (CMS por colección, no por sección); el presupuesto del visitante no se usa; sin descuentos, impuestos ni cargos recurrentes.
+
 ### Email (Resend)
 
 - La solicitud **se guarda primero**. Si un email falla, la solicitud sigue siendo válida, el fallo queda registrado en la fila y el visitante ve un mensaje honesto, sin que se le pida reenviar.
@@ -343,6 +349,7 @@ Llegan a `redcodepr@gmail.com`. No hay formulario ni respuestas automáticas.
 | --- | --- |
 | Aprobar el texto final de [/privacidad](app/privacidad/page.tsx) y poner `PRIVACY_POLICY` = `vigente` con la fecha real del lanzamiento (y vaciar `PRIVACY_PENDING`) en [lib/privacy.ts](lib/privacy.ts) | **Pendiente** (aprobación del propietario). `privacyPolicyFinal()` exige estado, fecha y cero pendientes |
 | PROD `redcode-prod` (`ylzygfcvycbwmcyzmefy`): 9 migraciones, registro desactivado, administrador | Hecho el 16-10-2026. `npm run prod:verify`: todo correcto |
+| Migración del catálogo de precios (`20261103154556_price_catalog`) en PROD | **Pendiente** (autorización). Aplicada y probada solo en DEV |
 | Variables de Vercel Production y Turnstile de Production (pre-clearance desactivado) | Hecho. Ver "Variables de Vercel Production" |
 | Merge a `master` (despliega Production) | **Pendiente** (autorización) |
 | Dominio en Vercel y DNS en Cloudflare | **Pendiente** (autorización) |

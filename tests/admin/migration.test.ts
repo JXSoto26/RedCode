@@ -262,3 +262,53 @@ describe("retention migrations", () => {
     expect(begin).toContain("not_eligible");
   });
 });
+
+describe("price catalog migration", () => {
+  const sql = readFileSync(join(dir, readdirSync(dir).find((f) => f.endsWith("_price_catalog.sql"))!), "utf8").toLowerCase();
+  const body = (name: string) => {
+    const start = sql.indexOf(`function public.${name}(`);
+    if (start < 0) throw new Error(`function ${name} not found`);
+    const end = sql.indexOf("$$;", start);
+    return sql.slice(start, end);
+  };
+
+  it("keeps the catalog private: RLS, admins read, nothing for anon or service_role", () => {
+    expect(sql).toContain("alter table public.price_catalog_entries enable row level security");
+    expect(sql).toContain("revoke all on table public.price_catalog_entries from public, anon, authenticated, service_role");
+    expect(sql).toContain("grant select on table public.price_catalog_entries to authenticated;");
+    expect(sql).toMatch(/create policy price_catalog_admin_select on public\.price_catalog_entries\s+for select to authenticated using \(\(select private\.is_admin\(\)\)\);/);
+    expect(sql).toContain("with (security_invoker = true)");
+    expect(sql).not.toMatch(/grant [^;]* to (anon|public|service_role)\b/);
+    expect(sql).not.toMatch(/grant (insert|update|delete|all)/);
+  });
+
+  it("never rewrites a catalog version: edits insert the next one", () => {
+    expect(sql).toContain("before update or delete on public.price_catalog_entries");
+    const save = body("admin_save_catalog_entry");
+    expect(save).toMatch(/begin\s+if not private\.is_admin\(\) then\s+raise exception 'forbidden'/);
+    expect(save).toContain("security definer");
+    expect(save).toContain("is distinct from p_expected_version");
+    expect(save).toContain("v_current.version + 1");
+    expect(save).not.toMatch(/update public\.price_catalog_entries|delete from public\.price_catalog_entries/);
+  });
+
+  it("stores money as integer cents, with no price for manual evaluations", () => {
+    expect(sql).toContain("price_cents bigint");
+    expect(sql).toContain("check (kind <> 'manual' or price_cents is null)");
+    expect(sql).not.toMatch(/\b(real|double precision|float\d?)\b/);
+    const code = sql.replace(/--[^\n]*/g, "");
+    expect(code).not.toMatch(/impuesto|\btax(es)?\b|descuento|discount|recurrente|recurring/);
+  });
+
+  it("keeps the admin check, conflict control and the same totals in the replaced functions", () => {
+    const draft = body("admin_save_quote_draft");
+    expect(draft).toMatch(/begin\s+if not private\.is_admin\(\) then\s+raise exception 'forbidden'/);
+    expect(draft).toContain("where quote_request_id = p_request_id and version = p_expected_version");
+    expect(draft).toContain("unknown_catalog_entry");
+    const finalize = body("admin_finalize_quote");
+    expect(finalize).toMatch(/begin\s+if not private\.is_admin\(\) then\s+raise exception 'forbidden'/);
+    expect(finalize).toContain("if v_draft.version is distinct from p_expected_version then");
+    expect(finalize).toContain("round(i.quantity * i.unit_price_cents)");
+    expect(finalize).toContain("e.price_cents");
+  });
+});

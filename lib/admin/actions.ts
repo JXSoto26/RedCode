@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { REQUEST_STATUSES } from "@/lib/quote/options";
+import { CATALOG_CODE, CATALOG_LIMITS } from "./catalog";
 import { RELATIONSHIPS } from "./labels";
 import { requireAdmin } from "./auth";
 import { parseDraftSave } from "./draft";
-import { computeTotals, decimalToHundredths } from "./money";
+import { computeTotals, decimalToHundredths, parseUsdToCents } from "./money";
 import { createAdminSupabase } from "./supabase";
 
 /**
@@ -260,4 +261,54 @@ export async function setRetentionHold(_prev: ActionState, formData: FormData): 
 
   revalidatePath(detailPath(parsed.data.requestId));
   return { ok: true, message: on ? "Conservación documentada guardada." : "Conservación retirada." };
+}
+
+// --- Price catalog --------------------------------------------------------------------
+
+const catalogSchema = z.object({
+  code: z.string().regex(CATALOG_CODE),
+  expectedVersion: z.coerce.number().int().min(1),
+  title: z.string().trim().min(1, "Escribe el nombre.").max(CATALOG_LIMITS.title),
+  unit: z.string().trim().min(1, "Escribe la unidad.").max(CATALOG_LIMITS.unit),
+  price: z.string().max(20),
+  scope: z.string().max(CATALOG_LIMITS.text),
+  includes: z.string().max(CATALOG_LIMITS.text),
+  excludes: z.string().max(CATALOG_LIMITS.text),
+  requiresReview: z.literal("on").optional(),
+  active: z.literal("on").optional(),
+});
+
+/**
+ * Saves a new version of one catalog entry. Existing drafts and finalized
+ * quotes keep the version they used: nothing else changes.
+ */
+export async function saveCatalogEntry(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const { supabase } = await requireAdmin();
+  const parsed = catalogSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Datos no válidos." };
+  const d = parsed.data;
+  const priceCents = parseUsdToCents(d.price);
+  if (priceCents === undefined) return { ok: false, message: "El precio debe ser un importe en USD, con hasta 2 decimales." };
+
+  const { data: version, error } = await supabase.rpc("admin_save_catalog_entry", {
+    p_code: d.code,
+    p_expected_version: d.expectedVersion,
+    p_entry: {
+      title: d.title,
+      unit: d.unit,
+      priceCents,
+      scope: d.scope.trim(),
+      includes: d.includes.trim(),
+      excludes: d.excludes.trim(),
+      requiresReview: d.requiresReview === "on",
+      active: d.active === "on",
+    },
+  });
+  if (error) {
+    if (error.code === "RC422") return { ok: false, message: "Los datos no son válidos (las evaluaciones manuales no llevan precio)." };
+    return { ok: false, message: rpcMessage(error, "Otra pestaña cambió este elemento. Recarga la página para ver la versión actual.") };
+  }
+
+  revalidatePath("/admin/catalogo");
+  return { ok: true, message: `Guardado como versión ${version}.` };
 }

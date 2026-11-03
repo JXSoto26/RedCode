@@ -29,10 +29,12 @@ import {
   changeRelationship,
   changeStatus,
   login,
+  saveCatalogEntry,
   saveDraft,
   setRetentionHold,
   type DraftState,
 } from "@/lib/admin/actions";
+import { catalogOrigins, listCatalog } from "@/lib/admin/catalog-data";
 import { getRequestDetail, listRequests, sanitizeSearch } from "@/lib/admin/data";
 
 const ADMIN_ID = "00000000-0000-4000-8000-0000000000a1";
@@ -114,6 +116,19 @@ const draftForm = (items: unknown[] = []) =>
   });
 
 const idle = { ok: false, message: null };
+const catalogForm = (fields: Record<string, string> = {}) =>
+  form({
+    code: "base_landing",
+    expectedVersion: "1",
+    title: "Landing page",
+    unit: "proyecto",
+    price: "700",
+    scope: "Una página",
+    includes: "",
+    excludes: "",
+    active: "on",
+    ...fields,
+  });
 const relationshipForm = () => form({ requestId: REQUEST_ID, expected: "prospecto", relationship: "cliente_activo" });
 
 const protectedCalls: [string, () => Promise<unknown>][] = [
@@ -124,6 +139,9 @@ const protectedCalls: [string, () => Promise<unknown>][] = [
   ["setRetentionHold", () => setRetentionHold(idle, form({ requestId: REQUEST_ID, hold: "on", reason: "Disputa" }))],
   ["listRequests", () => listRequests({ q: "", status: null, page: 1 })],
   ["getRequestDetail", () => getRequestDetail(REQUEST_ID)],
+  ["saveCatalogEntry", () => saveCatalogEntry(idle, catalogForm())],
+  ["listCatalog", () => listCatalog()],
+  ["catalogOrigins", () => catalogOrigins()],
 ];
 
 describe("access without a session", () => {
@@ -261,6 +279,41 @@ describe("as admin", () => {
     const r = await changeRelationship(idle, relationshipForm());
     expect(r.ok).toBe(false);
     expect(r.message).toMatch(/otra pestaña/);
+  });
+
+  it("saves a catalog entry as a new version through the database function only", async () => {
+    fake = fakeClient({ sub: ADMIN_ID, isAdmin: true, rpc: { data: 2, error: null } });
+    state.client = fake.client;
+    const r = await saveCatalogEntry(idle, catalogForm());
+    expect(r).toEqual({ ok: true, message: "Guardado como versión 2." });
+    expect(fake.rpc).toHaveBeenCalledExactlyOnceWith("admin_save_catalog_entry", {
+      p_code: "base_landing",
+      p_expected_version: 1,
+      p_entry: {
+        title: "Landing page",
+        unit: "proyecto",
+        priceCents: 70000,
+        scope: "Una página",
+        includes: "",
+        excludes: "",
+        requiresReview: false,
+        active: true,
+      },
+    });
+    expect(fake.reads).toEqual(["admin_users"]);
+  });
+
+  it("validates catalog input and reports an entry changed in another tab", async () => {
+    for (const bad of [catalogForm({ price: "12,34.5x" }), catalogForm({ code: "Bad Code" }), catalogForm({ title: " " })]) {
+      expect((await saveCatalogEntry(idle, bad)).ok).toBe(false);
+    }
+    expect(fake.rpc).not.toHaveBeenCalled();
+
+    fake = fakeClient({ sub: ADMIN_ID, isAdmin: true, rpc: { data: null, error: { code: "RC409" } } });
+    state.client = fake.client;
+    const r = await saveCatalogEntry(idle, catalogForm());
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/Otra pestaña cambió este elemento/);
   });
 
   it("returns null for malformed ids without querying", async () => {

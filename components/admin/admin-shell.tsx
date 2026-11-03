@@ -13,13 +13,19 @@ export function AdminShell({ email, children }: { email: string; children: React
             <Link href="/admin/solicitudes" aria-label="Panel de RedCode" className="shrink-0">
               <Logo />
             </Link>
-            <nav aria-label="Panel">
-              <Link
-                href="/admin/solicitudes"
-                className="rounded-full px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-white/[0.05] hover:text-foreground"
-              >
-                Solicitudes
-              </Link>
+            <nav aria-label="Panel" className="flex items-center gap-1">
+              {[
+                ["/admin/solicitudes", "Solicitudes"],
+                ["/admin/catalogo", "Catálogo"],
+              ].map(([href, label]) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="rounded-full px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-white/[0.05] hover:text-foreground"
+                >
+                  {label}
+                </Link>
+              ))}
             </nav>
           </div>
           <div className="flex min-w-0 items-center gap-3">
