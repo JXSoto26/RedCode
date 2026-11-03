@@ -124,7 +124,7 @@ export default async function PrivacyPage() {
             <p>
               <strong>Datos técnicos:</strong> para limitar el abuso del formulario se cuentan las solicitudes que llegan
               desde una misma conexión y para un mismo email. La dirección IP y el email no se guardan en claro para
-              esto: se guarda una huella (hash) con clave secreta que no permite leerlos, junto con un contador que se
+              esto: se guarda una huella (hash) calculada con una clave secreta, junto con un contador que se
               elimina periódicamente. La verificación anti-spam de Cloudflare Turnstile procesa datos técnicos de tu
               navegador y tu conexión (ver la sección 7). Al visitar el sitio, el proveedor de alojamiento (Vercel)
               registra datos técnicos de cada petición, como la dirección IP, el navegador y la página solicitada, para
@@ -241,7 +241,8 @@ export default async function PrivacyPage() {
               </li>
               <li>
                 <strong>Emails enviados por el sitio (Resend):</strong> según su documentación, Resend conserva los datos
-                de los emails enviados durante 30 días y sus copias de seguridad durante 7 días más.
+                y registros de los emails enviados durante 30 días, y sus copias de seguridad se conservan 7 días. El
+                estudio puede pedir a Resend que elimine antes un mensaje concreto.
               </li>
               <li>
                 <strong>Registros técnicos (Vercel y Supabase):</strong> los registros de peticiones al sitio en Vercel,
@@ -258,24 +259,27 @@ export default async function PrivacyPage() {
 
           <Section title="7. Cookies y verificación anti-spam">
             <p>
-              El sitio no usa cookies de analítica ni de publicidad. Las únicas cookies propias son las de sesión del
-              panel privado, que solo usa el administrador del estudio.
+              El sitio no usa cookies de analítica ni de publicidad. Las únicas cookies del propio sitio son las de
+              sesión del panel privado, que solo usa el administrador del estudio.
             </p>
             <p>
               En la página del formulario se carga Cloudflare Turnstile para distinguir personas de programas
               automáticos. Según Cloudflare, procesa la dirección IP, el navegador (User-Agent), una huella técnica de
               la conexión (TLS) y la página donde está el widget. Usa esos datos para detectar y bloquear bots y para
               mejorar ese servicio, no para identificarte, crear perfiles sobre ti ni segmentarte. Con la configuración
-              de este sitio, Turnstile no instala la cookie de autorización de Cloudflare (cf_clearance): genera un
-              código de un solo uso que el formulario envía con tu solicitud. Cloudflare no publica cuánto tiempo conserva estos datos. Esta verificación es necesaria
-              para que el formulario funcione.
+              de este sitio no se usa la cookie de pre-autorización de Cloudflare (cf_clearance): Turnstile genera un
+              código de un solo uso que el formulario envía con tu solicitud. Cloudflare puede usar además elementos
+              técnicos propios, necesarios para la seguridad de su servicio, que el estudio no controla. Cloudflare no
+              publica cuánto tiempo conserva estos datos. Esta verificación es necesaria para que el formulario
+              funcione.
             </p>
           </Section>
 
           <Section title="8. Acceso y protección">
             <p>
-              Las solicitudes no son públicas: solo el administrador del estudio puede verlas, desde un panel privado
-              que exige iniciar sesión con una cuenta autorizada. Las cotizaciones en PDF se guardan en un
+              Las solicitudes no son públicas. En el estudio, solo el administrador puede verlas, desde un panel privado
+              que exige iniciar sesión con una cuenta autorizada; los proveedores de la sección 4 las tratan solo para
+              prestar su servicio. Las cotizaciones en PDF se guardan en un
               almacenamiento privado, sin enlaces públicos. La comunicación con el sitio va cifrada (HTTPS). Ninguna
               medida es infalible, pero se aplican las razonables para el tamaño del estudio.
             </p>

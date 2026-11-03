@@ -50,6 +50,34 @@ describe("deployment environment guard", () => {
       expect(p).toHaveLength(2);
       expect(p[0]).toMatch(/clave de prueba/);
     });
+
+    it("checks the shape of the email settings it cannot read back", () => {
+      const ok = {
+        VERCEL_ENV: "production",
+        QUOTE_EMAIL_FROM: "RedCode Web Design Studio <cotizaciones@redcodewebdesign.com>",
+        QUOTE_EMAIL_REPLY_TO: "redcodepr@gmail.com",
+        QUOTE_NOTIFY_EMAIL: "redcodepr@gmail.com",
+        QUOTE_EMAIL_DELIVERY: "allowlist",
+        QUOTE_EMAIL_ALLOWLIST: "redcodepr@gmail.com",
+      };
+      expect(deploymentProblems(ok)).toEqual([]);
+      expect(deploymentProblems({ ...ok, QUOTE_EMAIL_FROM: "cotizaciones@redcodewebdesign.com" })).toEqual([]);
+
+      const bad = deploymentProblems({
+        ...ok,
+        QUOTE_EMAIL_FROM: "RedCode <onboarding@resend.dev>",
+        QUOTE_EMAIL_REPLY_TO: "a@x.com, b@x.com",
+        QUOTE_NOTIFY_EMAIL: "no-es-un-email",
+        QUOTE_EMAIL_ALLOWLIST: "redcodepr@gmail.com,???",
+      });
+      expect(bad).toEqual([
+        "QUOTE_EMAIL_FROM debe ser una dirección de redcodewebdesign.com (dominio verificado en Resend).",
+        "QUOTE_EMAIL_REPLY_TO debe ser una sola dirección de email.",
+        "QUOTE_NOTIFY_EMAIL debe ser una sola dirección de email.",
+        "QUOTE_EMAIL_ALLOWLIST debe ser una lista de emails separada por comas.",
+      ]);
+      expect(bad.join(" ")).not.toMatch(/onboarding|no-es-un-email|\?\?\?/);
+    });
   });
 
   describe("preview and local", () => {

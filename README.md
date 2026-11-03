@@ -364,6 +364,11 @@ Llegan a `redcodepr@gmail.com`. No hay formulario ni respuestas automáticas.
 | Preview | Solo DEV (`namtdzqeachgaldlbpmf`) | `QUOTE_EMAIL_DELIVERY` nunca `all` |
 | Local | Solo DEV | — |
 
+En Production comprueba también el formato de los valores de email, que en Vercel son *sensitive* y no se pueden releer:
+- `QUOTE_EMAIL_FROM` debe ser una dirección de `redcodewebdesign.com`.
+- `QUOTE_EMAIL_REPLY_TO` y `QUOTE_NOTIFY_EMAIL` deben ser una sola dirección.
+- `QUOTE_EMAIL_ALLOWLIST` debe ser una lista de emails.
+
 Una combinación incorrecta hace fallar el build o el arranque, con un mensaje que nombra variables y referencias, nunca valores secretos.
 
 ### Supabase PROD
@@ -403,7 +408,7 @@ Solo en el entorno **Production**, con valores **propios de PROD**. Nada de DEV.
 | `RESEND_API_KEY` | Recomendado: una clave propia de Production, de solo envío |
 | `QUOTE_EMAIL_FROM` | `RedCode Web Design Studio <cotizaciones@redcodewebdesign.com>` |
 | `QUOTE_NOTIFY_EMAIL`, `QUOTE_EMAIL_REPLY_TO` | `redcodepr@gmail.com` |
-| `QUOTE_EMAIL_DELIVERY` / `QUOTE_EMAIL_ALLOWLIST` | `allowlist` / `redcodepr@gmail.com` durante la prueba de lanzamiento; `all` solo después |
+| `QUOTE_EMAIL_DELIVERY` / `QUOTE_EMAIL_ALLOWLIST` | `allowlist` / `redcodepr@gmail.com` durante la prueba de lanzamiento (reestablecidos explícitamente el 3-11-2026); `all` solo después |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Widget real de Production |
 | `TURNSTILE_EXPECTED_HOSTNAMES` | `redcodewebdesign.com,www.redcodewebdesign.com` |
 
@@ -464,7 +469,7 @@ El día del lanzamiento, en este orden:
 
 ### Otros pendientes (no bloquean)
 
-- **Plan de Vercel:** el equipo está en **Hobby**, que las condiciones de Vercel limitan a uso personal no comercial. Para un sitio de negocio conviene pasar a Pro (decisión de Jeremy). La política dice que los registros con IP se conservan "como máximo un día": vale para Hobby (1 h) y para Pro (1 día). Activar Observability Plus (30 días) obligaría a cambiar el texto.
+- **Plan de Vercel:** el equipo sigue en **Hobby** (comprobado el 3-11-2026). Las Fair Use Guidelines dicen: "Hobby teams are restricted to non-commercial personal use only". Un sitio que anuncia servicios es uso comercial, así que hay que pasar a **Pro**: 20 USD/mes, con un asiento de despliegue y 20 USD de crédito de uso incluidos; cada asiento extra (Owner o Member) cuesta 20 USD/mes. Se cambia en el panel de Vercel → equipo `red-code-web-desing` → **Settings → Billing → Plan → Upgrade**. Lo decide y lo contrata Jeremy. La política dice que los registros con IP se conservan "como máximo un día": vale para Hobby (1 h) y para Pro (1 día). Activar Observability Plus (30 días) obligaría a cambiar el texto.
 - WhatsApp de contacto: cuando se configure en `lib/site.ts`, aparecerá en el sitio y en el PDF.
 - `npm audit`: quedan 5 avisos altos en la cadena de lint (`eslint-config-next` → `fast-glob`/`micromatch`/`braces`). Solo afectan a herramientas de desarrollo; `npm audit --omit=dev` = 0. npm solo propone bajar a la v14, que no corresponde.
 - Node local `22.20` frente a `24.x` en Vercel: ambos son compatibles con Next 16.3 (`>=20.9`). Algunas dependencias de prueba (`jsdom`) piden `22.22+`: conviene actualizar Node local.

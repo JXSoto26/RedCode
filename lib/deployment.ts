@@ -25,6 +25,17 @@ export function deploymentEnv(env: Env = process.env): DeploymentEnv {
   return v === "production" || v === "preview" || v === "development" ? v : "local";
 }
 
+/** Domain verified in Resend; Production may only send from it. */
+export const SENDER_DOMAIN = "redcodewebdesign.com";
+
+const SINGLE_EMAIL = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/;
+
+/** Domain of "Name <user@domain>" or "user@domain"; null when malformed. */
+function senderDomain(from: string): string | null {
+  const address = /<([^<>]+)>\s*$/.exec(from)?.[1] ?? from;
+  return SINGLE_EMAIL.test(address.trim()) ? address.trim().split("@")[1].toLowerCase() : null;
+}
+
 /** Cloudflare's official Turnstile test keys (always pass / fail / spent). */
 export const isTurnstileTestKey = (key: string) => /^[123]x0{8,}[0-9A-Z]{2}$/.test(key);
 
@@ -59,6 +70,19 @@ export function deploymentProblems(env: Env = process.env): string[] {
     for (const name of ["TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"]) {
       const key = value(env, name);
       if (key && isTurnstileTestKey(key)) problems.push(`${name} es una clave de prueba de Cloudflare: no se admite en Production.`);
+    }
+    // These values are stored as "sensitive" in Vercel and cannot be read back,
+    // so the build checks their shape instead. Messages never echo the values.
+    const from = value(env, "QUOTE_EMAIL_FROM");
+    if (from && senderDomain(from) !== SENDER_DOMAIN) {
+      problems.push(`QUOTE_EMAIL_FROM debe ser una dirección de ${SENDER_DOMAIN} (dominio verificado en Resend).`);
+    }
+    for (const name of ["QUOTE_EMAIL_REPLY_TO", "QUOTE_NOTIFY_EMAIL"]) {
+      const address = value(env, name);
+      if (address && !SINGLE_EMAIL.test(address)) problems.push(`${name} debe ser una sola dirección de email.`);
+    }
+    if (delivery !== "all" && value(env, "QUOTE_EMAIL_ALLOWLIST")?.split(",").some((a) => !SINGLE_EMAIL.test(a.trim()))) {
+      problems.push("QUOTE_EMAIL_ALLOWLIST debe ser una lista de emails separada por comas.");
     }
   } else {
     if (ref && ref !== DEV_PROJECT_REF) {
