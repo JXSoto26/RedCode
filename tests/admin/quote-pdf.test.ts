@@ -71,6 +71,34 @@ describe("quote PDF content", () => {
     expect(text).toContain("$1,260.00");
     expect(textOf(quoteDocDefinition(base))).toContain('"ul":["Inicio","Menú","Contacto"]');
   });
+
+  it("shows the total once, after every item, in the same unbreakable row as the last item", () => {
+    const items = Array.from({ length: 40 }, (_, i) => ({
+      description: `Partida ${i + 1}`,
+      quantityHundredths: 100,
+      unitPriceCents: 1000 + i,
+      lineTotalCents: 1000 + i,
+    }));
+    const doc = quoteDocDefinition({ ...base, items, totalCents: 40780 }) as unknown as {
+      content: { table?: { dontBreakRows: boolean; body: unknown[][] } }[];
+    };
+    const table = doc.content.find((c) => c.table)!.table!;
+    const text = textOf(doc);
+    expect(text.match(/Total \(USD\)/g)).toHaveLength(1);
+    expect(text.match(/\$407\.80/g)).toHaveLength(1);
+    for (let i = 1; i <= 40; i++) expect(text).toContain(`"Partida ${i}"`);
+    // The last body row holds the last item and the total together; rows never break.
+    expect(table.dontBreakRows).toBe(true);
+    const last = textOf(table.body[table.body.length - 1]);
+    expect(last).toContain('"Partida 40"');
+    expect(last).toContain("Total (USD)");
+    expect(last.indexOf('"Partida 40"')).toBeLessThan(last.indexOf("Total (USD)"));
+    expect(textOf(table.body.slice(0, -1))).not.toContain("Total (USD)");
+  });
+
+  it("refuses a quote without items instead of printing an empty total", () => {
+    expect(() => quoteDocDefinition({ ...base, items: [], totalCents: 0 })).toThrow("quote_without_items");
+  });
 });
 
 describe("characters the embedded font cannot draw", () => {
@@ -102,5 +130,8 @@ describe("quote PDF rendering", () => {
     }));
     const pdf = await renderQuotePdf({ ...base, items, totalCents: 40000, terms: "Condición larga. ".repeat(200) });
     expect(pages(pdf)).toBeGreaterThan(2);
+    // No links or internal URLs anywhere in the file (annotations or metadata).
+    const raw = pdf.toString("latin1");
+    expect(raw).not.toMatch(/\/URI|\/Annots|https?:\/\/|\/admin\/|supabase|vercel/i);
   });
 });

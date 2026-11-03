@@ -137,7 +137,10 @@ export function DraftEditor({ requestId, version, text, items, savedTotal, catal
 
       {textField("title", "Título", {})}
       {textField("summary", "Resumen y alcance", { multiline: true })}
-      {textField("deliverables", "Entregables", { multiline: true, hint: "Uno por línea." })}
+      {textField("deliverables", "Entregables", {
+        multiline: true,
+        hint: "Lo que RedCode entregará (páginas, secciones, funciones). Uno por línea. Los materiales del cliente no van aquí.",
+      })}
       {textField("exclusions", "Exclusiones", { multiline: true, optional: true, hint: "Lo que no incluye la propuesta. Una por línea." })}
 
       <fieldset className="flex flex-col gap-3">
@@ -241,7 +244,11 @@ export function DraftEditor({ requestId, version, text, items, savedTotal, catal
       </fieldset>
 
       {textField("estimatedTime", "Tiempo estimado", { optional: true })}
-      {textField("terms", "Condiciones", { multiline: true, optional: true })}
+      {textField("terms", "Condiciones", {
+        multiline: true,
+        optional: true,
+        hint: "Incluye aquí los materiales del cliente: textos, fotos y datos que debe proporcionar.",
+      })}
       {textField("validity", "Vigencia", { optional: true })}
 
       <div className="rounded-xl border border-border bg-surface-2 p-4">

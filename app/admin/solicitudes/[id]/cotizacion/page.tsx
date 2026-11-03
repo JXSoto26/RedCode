@@ -3,23 +3,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { AdminShell } from "@/components/admin/admin-shell";
+import { DraftItemsTable, Missing } from "@/components/admin/draft-items-table";
 import { PrintButton } from "@/components/admin/print-button";
 import { requireAdmin } from "@/lib/admin/auth";
 import { getRequestDetail } from "@/lib/admin/data";
 import { pendingFields } from "@/lib/admin/draft";
 import { formatDate } from "@/lib/admin/labels";
-import { computeTotals, formatCents, hundredthsToDecimal } from "@/lib/admin/money";
+import { computeTotals } from "@/lib/admin/money";
 import { site } from "@/lib/site";
 
 export const metadata: Metadata = { title: "Vista previa de cotización" };
-
-function Missing({ label }: { label: string }) {
-  return (
-    <span className="rounded border border-dashed border-amber-500 bg-amber-50 px-1.5 py-0.5 text-sm text-amber-800">
-      Pendiente: {label}
-    </span>
-  );
-}
 
 const lines = (text: string) => text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
@@ -129,54 +122,7 @@ export default async function QuotePreviewPage({ params }: { params: Promise<{ i
                   <Missing label="partidas" />
                 </div>
               ) : (
-                <div className="mt-3 overflow-x-auto">
-                  <table className="w-full min-w-[32rem] border-collapse text-[15px]">
-                    <thead>
-                      <tr className="border-b-2 border-zinc-300 text-left text-xs uppercase tracking-wide text-zinc-500">
-                        <th scope="col" className="py-2 pr-3 font-semibold">Descripción</th>
-                        <th scope="col" className="py-2 pr-3 text-right font-semibold">Cant.</th>
-                        <th scope="col" className="py-2 pr-3 text-right font-semibold">Precio unitario</th>
-                        <th scope="col" className="py-2 text-right font-semibold">Importe</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {draft.items.map((item, i) => {
-                        const line = totals?.lines[i] ?? null;
-                        return (
-                          <tr key={item.id} className="border-b border-zinc-200 align-top">
-                            <td className="py-2.5 pr-3">{item.description ?? <Missing label="descripción" />}</td>
-                            <td className="py-2.5 pr-3 text-right tabular-nums">
-                              {item.quantityHundredths === null ? (
-                                <Missing label="cantidad" />
-                              ) : (
-                                hundredthsToDecimal(item.quantityHundredths).replace(/\.00$/, "")
-                              )}
-                            </td>
-                            <td className="py-2.5 pr-3 text-right tabular-nums">
-                              {item.unitPriceCents === null ? <Missing label="precio" /> : formatCents(item.unitPriceCents)}
-                            </td>
-                            <td className="py-2.5 text-right tabular-nums">{line === null ? "—" : formatCents(line)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <th scope="row" colSpan={3} className="pt-4 pr-3 text-right text-sm font-semibold">
-                          Total (USD)
-                        </th>
-                        <td className="pt-4 text-right text-lg font-bold tabular-nums">
-                          {totals ? formatCents(totals.totalCents) : "—"}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                  {totals?.incomplete && (
-                    <p className="mt-2 text-right text-xs text-amber-700">
-                      Total parcial: hay partidas sin cantidad o precio.
-                    </p>
-                  )}
-                </div>
+                <DraftItemsTable items={draft.items} totals={totals} />
               )}
             </section>
 

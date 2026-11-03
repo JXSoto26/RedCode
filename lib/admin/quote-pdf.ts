@@ -50,6 +50,7 @@ const quantity = (hundredths: number) => hundredthsToDecimal(hundredths).replace
 
 /** Builds the pdfmake document definition. Pure, so it can be tested. */
 export function quoteDocDefinition(q: QuoteForPdf) {
+  if (q.items.length === 0) throw new Error("quote_without_items");
   // headlineLevel lets pageBreakBefore keep a heading with the text after it.
   const heading = (text: string) => ({
     text: text.toUpperCase(),
@@ -112,6 +113,39 @@ export function quoteDocDefinition(q: QuoteForPdf) {
 
   if (q.exclusions) content.push(section("Exclusiones", list(q.exclusions)));
 
+  const WIDTHS = ["*", 48, 92, 92];
+  const PADDING = {
+    paddingLeft: () => 0,
+    paddingRight: (i: number, node: { table: { widths: unknown[] } }) => (i === node.table.widths.length - 1 ? 0 : 8),
+  };
+  const itemRow = (item: QuoteForPdf["items"][number]) => [
+    { text: item.description, style: "td" },
+    { text: quantity(item.quantityHundredths), style: "td", alignment: "right" },
+    { text: formatCents(item.unitPriceCents), style: "td", alignment: "right" },
+    { text: formatCents(item.lineTotalCents), style: "td", alignment: "right" },
+  ];
+  const totalRow = [
+    { text: `Total (${q.currency})`, bold: true, colSpan: 3, alignment: "right", margin: [0, 3, 0, 0] },
+    {},
+    {},
+    { text: formatCents(q.totalCents), bold: true, fontSize: 14, alignment: "right" },
+  ];
+  // The last item and the total share one row of the main table, drawn as an
+  // inner table with the same columns. Rows never break (dontBreakRows), so
+  // the total is never alone on a page and appears exactly once, at the end.
+  const closing = {
+    colSpan: 4,
+    table: { widths: WIDTHS, body: [itemRow(q.items[q.items.length - 1]), totalRow] },
+    layout: {
+      ...PADDING,
+      hLineWidth: (i: number) => (i === 1 ? 1.2 : 0),
+      vLineWidth: () => 0,
+      hLineColor: () => RULE,
+      paddingTop: () => 6,
+      paddingBottom: () => 6,
+    },
+  };
+
   content.push(
     {
       margin: [0, 18, 0, 0],
@@ -121,7 +155,7 @@ export function quoteDocDefinition(q: QuoteForPdf) {
         headerRows: 2,
         dontBreakRows: true,
         keepWithHeaderRows: 1,
-        widths: ["*", 48, 92, 92],
+        widths: WIDTHS,
         body: [
           [{ text: "INVERSIÓN", style: "heading", colSpan: 4 }, {}, {}, {}],
           [
@@ -130,31 +164,19 @@ export function quoteDocDefinition(q: QuoteForPdf) {
             { text: "Precio unitario", style: "th", alignment: "right" },
             { text: "Importe", style: "th", alignment: "right" },
           ],
-          ...q.items.map((item) => [
-            { text: item.description, style: "td" },
-            { text: quantity(item.quantityHundredths), style: "td", alignment: "right" },
-            { text: formatCents(item.unitPriceCents), style: "td", alignment: "right" },
-            { text: formatCents(item.lineTotalCents), style: "td", alignment: "right" },
-          ]),
-          // The total is the table's last row, so it is never detached from
-          // it: on a new page it appears under the repeated headers.
-          [
-            { text: `Total (${q.currency})`, bold: true, colSpan: 3, alignment: "right", margin: [0, 3, 0, 0] },
-            {},
-            {},
-            { text: formatCents(q.totalCents), bold: true, fontSize: 14, alignment: "right" },
-          ],
+          ...q.items.slice(0, -1).map(itemRow),
+          [closing, {}, {}, {}],
         ],
       },
       layout: {
         hLineWidth: (i: number, node: { table: { body: unknown[] } }) =>
-          i < 2 || i === node.table.body.length ? 0 : i === 2 || i === node.table.body.length - 1 ? 1.2 : 0.6,
+          i < 2 || i === node.table.body.length ? 0 : i === 2 ? 1.2 : 0.6,
         vLineWidth: () => 0,
         hLineColor: (i: number) => (i === 2 ? "#a1a1aa" : i > 2 ? RULE : "#a1a1aa"),
-        paddingLeft: () => 0,
-        paddingRight: (i: number, node: { table: { widths: unknown[] } }) => (i === node.table.widths.length - 1 ? 0 : 8),
-        paddingTop: (i: number) => (i === 0 ? 0 : 6),
-        paddingBottom: (i: number) => (i === 0 ? 0 : 6),
+        ...PADDING,
+        // The closing row has its own inner padding.
+        paddingTop: (i: number, node: { table: { body: unknown[] } }) => (i === 0 || i === node.table.body.length - 1 ? 0 : 6),
+        paddingBottom: (i: number, node: { table: { body: unknown[] } }) => (i === 0 || i === node.table.body.length - 1 ? 0 : 6),
       },
     },
     { text: "Importes en dólares estadounidenses (USD).", fontSize: 8.5, color: MUTED, alignment: "right", margin: [0, 4, 0, 0] }

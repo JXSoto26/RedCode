@@ -146,6 +146,11 @@
   @page {
     margin: 16mm;
   }
+  /* The site is dark (color-scheme: dark). Without "background graphics",
+     browsers would paint the page margins dark: print in the light scheme. */
+  :root {
+    color-scheme: light;
+  }
   html,
   body {
     background: #fff !important;
