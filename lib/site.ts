@@ -37,9 +37,11 @@ export const whatsappHref = site.contact.whatsapp
   ? `https://wa.me/${site.contact.whatsapp}?text=${encodeURIComponent(QUOTE_MESSAGE)}`
   : null;
 
-export const emailHref = site.contact.email
-  ? `mailto:${site.contact.email}?subject=${encodeURIComponent("Cotización de página web")}`
-  : null;
+/**
+ * Plain mailto with the address only: no subject or other parameters, so
+ * every mail app accepts it. Every email link on the site uses this value.
+ */
+export const emailHref = site.contact.email ? `mailto:${site.contact.email}` : null;
 
 /** True once at least one public contact method is configured. */
 export const hasContact = Boolean(whatsappHref || emailHref);

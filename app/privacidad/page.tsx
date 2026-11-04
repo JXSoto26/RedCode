@@ -12,7 +12,7 @@ import {
   privacyPolicyFinal,
 } from "@/lib/privacy";
 import { isQuoteSubmissionEnabled } from "@/lib/quote/config";
-import { site } from "@/lib/site";
+import { emailHref, site } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Política de privacidad",
@@ -58,8 +58,8 @@ export default async function PrivacyPage() {
   await connection();
   const final = privacyPolicyFinal();
   const contact = site.contact.email;
-  const mail = contact ? (
-    <a href={`mailto:${contact}`} className="text-brand-300 underline underline-offset-4">
+  const mail = contact && emailHref ? (
+    <a href={emailHref} className="text-brand-300 underline underline-offset-4">
       {contact}
     </a>
   ) : (

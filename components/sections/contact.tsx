@@ -1,7 +1,8 @@
-import { Mail, MapPin, MessageCircle, UserRound } from "lucide-react";
+import { MapPin, MessageCircle, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/motion/reveal";
+import { EmailContact } from "@/components/sections/email-contact";
 import { emailHref, hasContact, site, whatsappHref } from "@/lib/site";
 
 const CONTACT_INFO = [
@@ -69,23 +70,8 @@ export function Contact() {
                 </Button>
               )}
 
-              {emailHref && (
-                <Button
-                  asChild
-                  size="lg"
-                  variant={whatsappHref ? "secondary" : "primary"}
-                  className="w-full"
-                >
-                  <a href={emailHref}>
-                    <Mail className="size-4" /> Enviar un email
-                  </a>
-                </Button>
-              )}
-
-              {site.contact.email && (
-                <p className="text-center text-sm text-muted-2">
-                  {site.contact.email}
-                </p>
+              {emailHref && site.contact.email && (
+                <EmailContact email={site.contact.email} href={emailHref} primary={!whatsappHref} />
               )}
             </div>
           </Reveal>
