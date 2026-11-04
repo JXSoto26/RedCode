@@ -6,19 +6,25 @@
  * is "vigente", the effective date is set and nothing is left in PENDING.
  */
 export const PRIVACY_POLICY = {
-  status: "borrador" as "borrador" | "vigente",
+  // Text approved by the owner; in force from launch day (2026-11-04). Any
+  // change to the text needs a new approval and a new effective date.
+  status: "vigente" as "borrador" | "vigente",
   /** Date the reviewed text takes effect, "YYYY-MM-DD" (launch day). */
-  effectiveDate: null as string | null,
+  effectiveDate: "2026-11-04" as string | null,
 };
 
 /**
  * Facts and decisions the text depends on that are not confirmed yet. Each one
  * is shown on the draft next to the paragraph it affects. Remove an entry only
- * once the text is updated with the confirmed answer.
+ * once the text is updated with the confirmed answer. Empty: all confirmed.
  */
-export const PRIVACY_PENDING = {
-  review: "Aprobación final del texto.",
-} as Record<string, string>;
+export const PRIVACY_PENDING = {} as Record<string, string>;
+
+/** "4 de noviembre de 2026" for the effective date (no time zone shift). */
+export function formatPolicyDate(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Intl.DateTimeFormat("es-PR", { dateStyle: "long", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, d)));
+}
 
 /**
  * Facts the text relies on, confirmed on 2026-10-16. If any changes (plan,

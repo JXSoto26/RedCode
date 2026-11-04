@@ -60,7 +60,7 @@ El flujo completo está en el README (secciones "Supabase DEV", "Pruebas", "Ento
 - No copies datos de DEV a PROD.
 
 ## Privacidad y conservación
-- La política (`lib/privacy.ts`) sigue en `borrador`. No la marques `vigente`, no fijes `effectiveDate` ni vacíes `PRIVACY_PENDING` sin que el propietario apruebe el texto y confirme cada pendiente.
+- La política (`lib/privacy.ts`) está **vigente desde el 2026-11-04**, con el texto aprobado por el propietario. No cambies su texto, su fecha ni `PRIVACY_PENDING` sin su aprobación; un texto nuevo necesita una fecha de vigencia nueva. Volver a `borrador` cierra el formulario en Production.
 - `npm run retention` / `retention:prod` solo en modo simulación (`plan`, o `erase --only=<id>` sin `--env`/`--confirm`) salvo orden explícita. **Nunca** ejecutes `execute` ni `erase` real sobre datos reales; en DEV solo sobre fixtures de prueba identificados.
 - No programes la revisión mensual (cron, Vercel Cron, pg_cron): es manual.
 - La eliminación solo pasa por `private.retention_begin`/`erasure_begin` + `retention_finish` (propietario, CLI). No concedas permisos sobre ellas a ningún rol de la API ni añadas un botón de borrar al panel.
@@ -71,7 +71,7 @@ El flujo completo está en el README (secciones "Supabase DEV", "Pruebas", "Ento
 - Production exige Turnstile con claves reales y `TURNSTILE_EXPECTED_HOSTNAMES`; las claves de prueba de Cloudflare solo se usan en pruebas, local y Preview.
 - No debilites `lib/deployment.ts` ni la quites de `next.config.ts` / `instrumentation.ts`: Production nunca puede apuntar a DEV, ni Preview o local a otro proyecto que no sea DEV.
 - Un fallo de Turnstile no guarda ni envía nada; los reintentos de solicitudes ya guardadas no piden token. Mantén ese orden en `lib/quote/service.ts`.
-- No cambies `PRIVACY_POLICY` a `vigente` sin el texto revisado y las decisiones del usuario: es la compuerta de lanzamiento del formulario en Production.
+- `PRIVACY_POLICY` es la compuerta de lanzamiento del formulario en Production: está `vigente` desde el 2026-11-04. No la modifiques sin decisión del propietario.
 
 ## Pruebas
 - `npm test` no usa red. `npm run test:dev` usa Supabase DEV y no envía emails.

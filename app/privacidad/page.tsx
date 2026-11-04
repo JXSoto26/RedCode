@@ -5,9 +5,9 @@ import { Footer } from "@/components/footer";
 import { Badge } from "@/components/ui/badge";
 import {
   PRIVACY_FACTS,
-  PRIVACY_PENDING,
   PRIVACY_POLICY,
   PRIVACY_REQUESTS,
+  formatPolicyDate,
   PROSPECT_RETENTION_MONTHS,
   privacyPolicyFinal,
 } from "@/lib/privacy";
@@ -21,17 +21,6 @@ export const metadata: Metadata = {
   // The draft is not indexed until the reviewed text is final.
   ...(!privacyPolicyFinal() && { robots: { index: false, follow: true } }),
 };
-
-/** Marks a paragraph that depends on something not confirmed yet (draft only). */
-function Pending({ id }: { id: string }) {
-  const text = PRIVACY_PENDING[id];
-  if (!text) return null;
-  return (
-    <p className="rounded-xl border border-dashed border-amber-400/40 bg-amber-400/[0.06] p-4 text-sm text-amber-100">
-      <strong className="font-semibold">Por confirmar:</strong> {text}
-    </p>
-  );
-}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -75,7 +64,7 @@ export default async function PrivacyPage() {
           <h1 className="mt-5 text-balance text-3xl font-bold tracking-tight sm:text-4xl">Política de privacidad</h1>
 
           {final ? (
-            <p className="mt-4 text-sm text-muted">Vigente desde el {PRIVACY_POLICY.effectiveDate}.</p>
+            <p className="mt-4 text-sm text-muted">Vigente desde el {formatPolicyDate(PRIVACY_POLICY.effectiveDate!)}.</p>
           ) : (
             <div
               role="note"
@@ -327,7 +316,6 @@ export default async function PrivacyPage() {
                 lanzamiento).
               </p>
             )}
-            <Pending id="review" />
           </Section>
         </div>
       </main>

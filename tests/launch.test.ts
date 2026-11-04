@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
-import { PRIVACY_PENDING, PRIVACY_POLICY, privacyPolicyFinal } from "@/lib/privacy";
+import { PRIVACY_PENDING, PRIVACY_POLICY, formatPolicyDate, privacyPolicyFinal } from "@/lib/privacy";
 import { site } from "@/lib/site";
 import nextConfig from "../next.config";
 
@@ -26,17 +26,18 @@ describe("launch readiness", () => {
     expect(r.sitemap).toBe("https://redcodewebdesign.com/sitemap.xml");
   });
 
-  it("the privacy policy is still a draft (launch pending) and is not indexed", async () => {
-    expect(PRIVACY_POLICY.status).toBe("borrador");
+  it("the privacy policy is in force since launch day and is indexable", async () => {
+    expect(PRIVACY_POLICY).toEqual({ status: "vigente", effectiveDate: "2026-11-04" });
+    expect(formatPolicyDate("2026-11-04")).toBe("4 de noviembre de 2026");
     const page = await import("@/app/privacidad/page");
-    expect(page.metadata.robots).toEqual({ index: false, follow: true });
+    expect(page.metadata.robots).toBeUndefined();
     expect(page.metadata.alternates).toEqual({ canonical: "/privacidad" });
   }, 60_000); // importing the page loads the whole component tree
 
-  it("cannot become final while something in the text is unconfirmed", () => {
-    expect(Object.keys(PRIVACY_PENDING).length).toBeGreaterThan(0);
-    expect(privacyPolicyFinal()).toBe(false);
-    // Every pending item is shown next to the paragraph it affects.
+  it("is final only with every pending item resolved", () => {
+    expect(PRIVACY_PENDING).toEqual({});
+    expect(privacyPolicyFinal()).toBe(true);
+    // Any future pending item must be shown next to the paragraph it affects.
     const page = readFileSync("app/privacidad/page.tsx", "utf8");
     for (const id of Object.keys(PRIVACY_PENDING)) expect(page).toContain(`<Pending id="${id}" />`);
   });

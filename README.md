@@ -287,7 +287,7 @@ Orden recomendado antes de subir cambios: `npm run lint`, `npm run typecheck`, `
 
 ## Privacidad y conservación
 
-El texto propuesto está en [app/privacidad/page.tsx](app/privacidad/page.tsx). Sigue en **borrador** ([lib/privacy.ts](lib/privacy.ts)): `privacyPolicyFinal()` exige `status = "vigente"`, fecha de entrada en vigor y que `PRIVACY_PENDING` esté vacío. Cada pendiente aparece en la página junto al párrafo al que afecta.
+El texto está en [app/privacidad/page.tsx](app/privacidad/page.tsx) y está **vigente desde el 4-11-2026** ([lib/privacy.ts](lib/privacy.ts)). `privacyPolicyFinal()` exige `status = "vigente"`, fecha de entrada en vigor y que `PRIVACY_PENDING` esté vacío; si se vuelve a `borrador`, el formulario se cierra en Production.
 
 ### Reglas de conservación (decisión operativa)
 
@@ -344,13 +344,13 @@ Llegan a `redcodepr@gmail.com`. No hay formulario ni respuestas automáticas.
 
 ## Lanzamiento
 
-**Estado: pendiente.** El código está preparado, pero el formulario no se habilitará en Production hasta que se cumpla todo lo de "Bloqueantes". Cada punto está protegido en el código: si falta algo, el formulario se desactiva, no se abre.
+**Estado: en curso (4-11-2026).** Política vigente, PROD preparado y Vercel Pro. Quedan el merge a `master`, el dominio y la prueba en el dominio propio. Cada punto está protegido en el código: si falta algo, el formulario se desactiva, no se abre.
 
 ### Bloqueantes
 
 | Pendiente | Estado |
 | --- | --- |
-| Aprobar el texto final de [/privacidad](app/privacidad/page.tsx) y poner `PRIVACY_POLICY` = `vigente` con la fecha real del lanzamiento (y vaciar `PRIVACY_PENDING`) en [lib/privacy.ts](lib/privacy.ts) | **Pendiente** (aprobación del propietario). `privacyPolicyFinal()` exige estado, fecha y cero pendientes |
+| Texto final de [/privacidad](app/privacidad/page.tsx) aprobado y `PRIVACY_POLICY` = `vigente` desde el 2026-11-04 | Hecho (4-11-2026) |
 | PROD `redcode-prod` (`ylzygfcvycbwmcyzmefy`): 11 migraciones (incluido el catálogo de precios), registro desactivado, administrador | Hecho (catálogo aplicado el 4-11-2026, con los precios aprobados). `npm run prod:verify`: todo correcto, incluido el catálogo cerrado para anónimos |
 | Plan Pro del equipo de Vercel | Hecho: activo, comprobado el 4-11-2026 |
 | Variables de Vercel Production y Turnstile de Production (pre-clearance desactivado) | Hecho. Ver "Variables de Vercel Production" |
