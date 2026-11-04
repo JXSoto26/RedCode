@@ -351,8 +351,8 @@ Llegan a `redcodepr@gmail.com`. No hay formulario ni respuestas automáticas.
 | Pendiente | Estado |
 | --- | --- |
 | Aprobar el texto final de [/privacidad](app/privacidad/page.tsx) y poner `PRIVACY_POLICY` = `vigente` con la fecha real del lanzamiento (y vaciar `PRIVACY_PENDING`) en [lib/privacy.ts](lib/privacy.ts) | **Pendiente** (aprobación del propietario). `privacyPolicyFinal()` exige estado, fecha y cero pendientes |
-| PROD `redcode-prod` (`ylzygfcvycbwmcyzmefy`): 9 migraciones, registro desactivado, administrador | Hecho el 16-10-2026. `npm run prod:verify`: todo correcto |
-| Migraciones del catálogo de precios (`20261103154556_price_catalog`, `20261104152903_catalog_prices_2026_11`) en PROD | **Pendiente** (autorización). Aplicadas y probadas solo en DEV |
+| PROD `redcode-prod` (`ylzygfcvycbwmcyzmefy`): 11 migraciones (incluido el catálogo de precios), registro desactivado, administrador | Hecho (catálogo aplicado el 4-11-2026, con los precios aprobados). `npm run prod:verify`: todo correcto, incluido el catálogo cerrado para anónimos |
+| Plan Pro del equipo de Vercel | Hecho: activo, comprobado el 4-11-2026 |
 | Variables de Vercel Production y Turnstile de Production (pre-clearance desactivado) | Hecho. Ver "Variables de Vercel Production" |
 | Merge a `master` (despliega Production) | **Pendiente** (autorización) |
 | Dominio en Vercel y DNS en Cloudflare | **Pendiente** (autorización) |
@@ -479,7 +479,7 @@ El día del lanzamiento, en este orden:
 
 ### Otros pendientes (no bloquean)
 
-- **Plan de Vercel:** el equipo sigue en **Hobby** (comprobado el 3-11-2026). Las Fair Use Guidelines dicen: "Hobby teams are restricted to non-commercial personal use only". Un sitio que anuncia servicios es uso comercial, así que hay que pasar a **Pro**: 20 USD/mes, con un asiento de despliegue y 20 USD de crédito de uso incluidos; cada asiento extra (Owner o Member) cuesta 20 USD/mes. Se cambia en el panel de Vercel → equipo `red-code-web-desing` → **Settings → Billing → Plan → Upgrade**. Lo decide y lo contrata el propietario. La política dice que los registros con IP se conservan "como máximo un día": vale para Hobby (1 h) y para Pro (1 día). Activar Observability Plus (30 días) obligaría a cambiar el texto.
+- **Plan de Vercel:** el equipo está en **Pro** (activo, comprobado el 4-11-2026), como exigen las Fair Use Guidelines para uso comercial. La política dice que los registros con IP se conservan "como máximo un día": vale para Pro (1 día). Activar Observability Plus (30 días) obligaría a cambiar el texto.
 - WhatsApp de contacto: cuando se configure en `lib/site.ts`, aparecerá en el sitio y en el PDF.
 - `npm audit`: quedan 5 avisos altos en la cadena de lint (`eslint-config-next` → `fast-glob`/`micromatch`/`braces`). Solo afectan a herramientas de desarrollo; `npm audit --omit=dev` = 0. npm solo propone bajar a la v14, que no corresponde.
 - Node local `22.20` frente a `24.x` en Vercel: ambos son compatibles con Next 16.3 (`>=20.9`). Algunas dependencias de prueba (`jsdom`) piden `22.22+`: conviene actualizar Node local.

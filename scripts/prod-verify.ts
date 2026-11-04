@@ -41,6 +41,8 @@ async function main() {
     "quotes",
     "quote_items",
     "quote_sends",
+    "price_catalog_entries",
+    "price_catalog_current",
   ]) {
     const r = await fetch(`${url}/rest/v1/${table}?select=*&limit=1`, { headers });
     const body = (await r.json().catch(() => null)) as { code?: string } | null;
@@ -66,6 +68,7 @@ async function main() {
     ["admin_resolve_quote_send", { p_send_id: id(), p_resolution: "no_enviado", p_provider_id: null }],
     ["admin_set_relationship", { p_request_id: id(), p_expected: "prospecto", p_new: "cliente_activo" }],
     ["admin_set_retention_hold", { p_request_id: id(), p_hold: false, p_reason: null }],
+    ["admin_save_catalog_entry", { p_code: "base_landing", p_expected_version: 1, p_entry: {} }],
     ["quote_rate_limit_hit", { p_bucket: "verify", p_window_seconds: 0, p_limit: 1 }],
   ];
   for (const [fn, args] of calls) {
