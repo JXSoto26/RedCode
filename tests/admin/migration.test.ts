@@ -1,0 +1,335 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { REQUEST_STATUSES } from "@/lib/quote/options";
+
+// Static checks on the admin panel SQL. The live checks (anon, signed-in
+// non-admin, admin, service_role) are in supabase/tests/admin_access.sql.
+const dir = join(process.cwd(), "supabase", "migrations");
+const file = readdirSync(dir).find((f) => f.endsWith("_admin_panel.sql"))!;
+const sql = readFileSync(join(dir, file), "utf8").toLowerCase();
+const allSql = readdirSync(dir)
+  .filter((f) => f.endsWith(".sql"))
+  .map((f) => readFileSync(join(dir, f), "utf8"))
+  .join("\n")
+  .toLowerCase();
+
+const NEW_TABLES = ["admin_users", "quote_status_history", "quote_notes", "quote_drafts", "quote_draft_items"];
+const RPCS = ["admin_set_quote_status", "admin_add_quote_note", "admin_save_quote_draft"];
+
+const functionBody = (name: string) => {
+  const match = new RegExp(`create function public\\.${name}\\([\\s\\S]*?\\$\\$([\\s\\S]*?)\\$\\$;`).exec(sql);
+  if (!match) throw new Error(`function ${name} not found`);
+  return { header: match[0].slice(0, match[0].indexOf("$$")), body: match[1] };
+};
+
+describe("admin panel migration", () => {
+  it("enables RLS and revokes everything (service_role included) on every new table", () => {
+    for (const t of NEW_TABLES) {
+      expect(sql).toContain(`alter table public.${t} enable row level security`);
+      expect(sql).toContain(`revoke all on table public.${t} from public, anon, authenticated, service_role`);
+    }
+  });
+
+  it("grants nothing to anon or public", () => {
+    expect(sql).not.toMatch(/grant [^;]* to (anon|public)\b/);
+  });
+
+  it("only grants SELECT on tables to authenticated: writes go through the admin functions", () => {
+    const tableGrants = [...sql.matchAll(/grant ([^;]*?) on table ([^;]*?) to ([^;]*);/g)];
+    expect(tableGrants.length).toBeGreaterThan(0);
+    for (const [, privileges, , role] of tableGrants) {
+      expect(privileges.trim()).toBe("select");
+      expect(role.trim()).toBe("authenticated");
+    }
+  });
+
+  it("restricts every read policy to admins, except a user reading their own admin row", () => {
+    const policies = [...sql.matchAll(/create policy (\w+) on public\.(\w+)\s+for (\w+) to (\w+)\s+using \(([^;]*)\);/g)];
+    expect(policies.map((p) => p[2]).sort()).toEqual([...NEW_TABLES, "quote_requests"].sort());
+    for (const [, name, table, command, role, using] of policies) {
+      expect(command, name).toBe("select");
+      expect(role, name).toBe("authenticated");
+      if (table === "admin_users") expect(using).toBe("user_id = (select auth.uid())");
+      else expect(using).toBe("(select private.is_admin())");
+    }
+  });
+
+  it("never lets anyone add admins through the API", () => {
+    expect(sql).not.toMatch(/grant [^;]*(insert|update|delete|all)[^;]* on table public\.admin_users/);
+  });
+
+  it("checks the admin first in every write function, with a fixed search_path", () => {
+    for (const name of RPCS) {
+      const { header, body } = functionBody(name);
+      expect(header).toContain("security definer");
+      expect(header).toContain("set search_path = ''");
+      // The very first statement after BEGIN is the admin check.
+      expect(body.slice(body.search(/^begin$/m))).toMatch(
+        /^begin\s+if not private\.is_admin\(\) then\s+raise exception 'forbidden' using errcode = 'rc403'/
+      );
+      expect(sql).toMatch(new RegExp(`revoke all on function public\\.${name}\\([^)]*\\) from public, anon, authenticated, service_role`));
+      expect(sql).toMatch(new RegExp(`grant execute on function public\\.${name}\\([^)]*\\) to authenticated;`));
+    }
+  });
+
+  it("records status history in the same function that changes the status, with optimistic locking", () => {
+    const { body } = functionBody("admin_set_quote_status");
+    expect(body).toContain("for update");
+    expect(body).toContain("is distinct from p_expected_status");
+    expect(body).toMatch(/update public\.quote_requests set status[\s\S]*insert into public\.quote_status_history/);
+  });
+
+  it("rejects stale draft saves instead of overwriting", () => {
+    const { body } = functionBody("admin_save_quote_draft");
+    expect(body).toContain("where quote_request_id = p_request_id and version = p_expected_version");
+    expect(body).toContain("version = version + 1");
+    expect(body).toContain("on conflict (quote_request_id) do nothing");
+    // Saving a draft never touches the request status.
+    expect(body).not.toContain("update public.quote_requests");
+  });
+
+  it("stores money as integer cents and quantities as exact decimals", () => {
+    expect(sql).toContain("unit_price_cents bigint");
+    expect(sql).toContain("quantity numeric(10, 2)");
+    expect(sql).not.toMatch(/\b(real|double precision|float\d?)\b/);
+  });
+
+  it("mirrors the request statuses from lib/quote/options.ts", () => {
+    const list = REQUEST_STATUSES.map((s) => `'${s}'`).join(", ");
+    expect(sql).toContain(`from_status in (${list})`);
+    expect(sql).toContain(`p_new_status not in (${list})`);
+  });
+
+  it("never drops or truncates, and deletes rows only in the owner-only retention function", () => {
+    expect(allSql).not.toMatch(/drop table|truncate/);
+    const withoutFinish = allSql.replace(/create function private\.retention_finish\([\s\S]*?\$\$;/g, "");
+    // Elsewhere only draft items (replaced on save) and expired rate-limit rows are deleted.
+    const deletes = [...withoutFinish.matchAll(/delete from public\.(\w+)/g)].map((m) => m[1]);
+    expect([...new Set(deletes)].sort()).toEqual(["quote_draft_items", "quote_rate_limits"]);
+  });
+});
+
+describe("quote sending migration", () => {
+  const sending = readFileSync(join(dir, readdirSync(dir).find((f) => f.endsWith("_quote_sending.sql"))!), "utf8").toLowerCase();
+  const TABLES = ["quotes", "quote_items", "quote_sends"];
+  const FUNCTIONS = [
+    "admin_finalize_quote",
+    "admin_attach_quote_pdf",
+    "admin_begin_quote_send",
+    "admin_claim_quote_send",
+    "admin_finish_quote_send",
+    "admin_resolve_quote_send",
+  ];
+
+  it("locks down every new table: RLS, nothing for anon or service_role, admins read only", () => {
+    for (const t of TABLES) {
+      expect(sending).toContain(`alter table public.${t} enable row level security`);
+      expect(sending).toContain(`revoke all on table public.${t} from public, anon, authenticated, service_role`);
+      expect(sending).toContain(`grant select on table public.${t} to authenticated;`);
+      expect(sending).toMatch(
+        new RegExp(`create policy \\w+ on public\\.${t}\\s+for select to authenticated using \\(\\(select private\\.is_admin\\(\\)\\)\\);`)
+      );
+    }
+    expect(sending).not.toMatch(/grant [^;]* to (anon|public|service_role)\b/);
+    expect(sending).not.toMatch(/grant (insert|update|delete|all)/);
+  });
+
+  it("checks the admin first in every function", () => {
+    for (const name of FUNCTIONS) {
+      const match = new RegExp(`create function public\\.${name}\\([\\s\\S]*?\\$\\$([\\s\\S]*?)\\$\\$;`).exec(sending);
+      expect(match, name).not.toBeNull();
+      expect(match![0]).toContain("security definer");
+      expect(match![0]).toContain("set search_path = ''");
+      expect(match![1].slice(match![1].search(/^begin$/m))).toMatch(/^begin\s+if not private\.is_admin\(\) then\s+raise exception 'forbidden'/);
+      expect(sending).toMatch(
+        new RegExp(`revoke all on function public\\.${name}\\([^)]*\\) from public, anon, authenticated, service_role`)
+      );
+    }
+  });
+
+  it("keeps PDFs in a private bucket that admins can add to but never overwrite or delete", () => {
+    expect(sending).toContain("values ('quote-pdfs', 'quote-pdfs', false, 5242880, array['application/pdf'])");
+    const storagePolicies = [...sending.matchAll(/create policy \w+ on storage\.objects\s+for (\w+)/g)].map((m) => m[1]);
+    expect(storagePolicies.sort()).toEqual(["insert", "select"]);
+    expect(sending).toMatch(/bucket_id = 'quote-pdfs' and \(select private\.is_admin\(\)\)/);
+  });
+
+  it("makes finalized quotes immutable and sends idempotent", () => {
+    expect(sending).toContain("before update or delete on public.quotes");
+    expect(sending).toContain("before update or delete on public.quote_items");
+    expect(sending).toContain("constraint quote_sends_request_key_unique unique (request_key)");
+    expect(sending).toMatch(/create unique index quote_sends_one_first_send[\s\S]*where kind = 'envio' and status in \('pendiente', 'en_proceso', 'aceptado', 'incierto'\)/);
+    expect(sending).toContain("interval '23 hours'");
+  });
+
+  it("never overwrites aceptada or cerrada when a send is accepted", () => {
+    const rule = /create function private\.apply_send_acceptance[\s\S]*?\$\$;/.exec(sending)![0];
+    expect(rule).toContain("if v_status in ('nueva', 'por_aclarar') then");
+    expect(rule).toContain("insert into public.quote_status_history");
+  });
+});
+
+describe("sender and Reply-To migration", () => {
+  const sql = readFileSync(
+    join(dir, readdirSync(dir).find((f) => f.endsWith("_quote_sends_sender_reply_to.sql"))!),
+    "utf8"
+  ).toLowerCase();
+
+  it("records sender and Reply-To with each send, keeping the admin check and privileges", () => {
+    expect(sql).toContain("add column sender text");
+    expect(sql).toContain("add column reply_to text");
+    const fn = /create function public\.admin_begin_quote_send\([\s\S]*?\$\$([\s\S]*?)\$\$;/.exec(sql)!;
+    expect(fn[0]).toContain("security definer");
+    expect(fn[0]).toContain("set search_path = ''");
+    expect(fn[1].slice(fn[1].search(/^begin$/m))).toMatch(/^begin\s+if not private\.is_admin\(\) then\s+raise exception 'forbidden'/);
+    expect(fn[1]).toContain("btrim(p_sender), nullif(btrim(p_reply_to), '')");
+    expect(sql).toContain(
+      "revoke all on function public.admin_begin_quote_send(uuid, uuid, text, text, text, text, text)\n  from public, anon, authenticated, service_role"
+    );
+    expect(sql).toContain("drop function public.admin_begin_quote_send(uuid, uuid, text, text, text);");
+    expect(sql).not.toMatch(/grant [^;]* to (anon|public|service_role)\b/);
+  });
+});
+
+describe("retention migrations", () => {
+  const sql = readdirSync(dir)
+    .filter((f) => /_retention(_|\.)/.test(f))
+    .map((f) => readFileSync(join(dir, f), "utf8"))
+    .join("\n")
+    .toLowerCase();
+  const fn = (schema: string, name: string) => {
+    const m = new RegExp(`create (?:or replace )?function ${schema}\\.${name}\\([\\s\\S]*?\\$\\$([\\s\\S]*?)\\$\\$;`).exec(sql);
+    if (!m) throw new Error(`function ${schema}.${name} not found`);
+    return { full: m[0], body: m[1] };
+  };
+
+  it("keeps deletion out of reach of the API: owner-only private functions, no grants", () => {
+    for (const name of ["retention_review", "retention_begin", "retention_finish", "erasure_begin"]) {
+      expect(sql).toMatch(new RegExp(`revoke all on function private\\.${name}\\([^)]*\\) from public, anon, authenticated, service_role`));
+      expect(sql).not.toMatch(new RegExp(`grant [^;]* on function private\\.${name}`));
+      // Runs with the caller's rights: only the database owner (CLI) has them.
+      expect(fn("private", name).full).not.toContain("security definer");
+    }
+    expect(sql).toContain("revoke all on table private.retention_jobs from public, anon, authenticated, service_role");
+    expect(sql).not.toMatch(/grant (insert|update|delete|all)/);
+    expect(sql).not.toMatch(/grant [^;]* to (anon|public|service_role)\b/);
+  });
+
+  it("admin functions check the admin first and only change relationship or hold", () => {
+    for (const name of ["admin_set_relationship", "admin_set_retention_hold"]) {
+      const { full, body } = fn("public", name);
+      expect(full).toContain("security definer");
+      expect(full).toContain("set search_path = ''");
+      expect(body.slice(body.search(/^begin$/m))).toMatch(/^begin\s+if not private\.is_admin\(\) then\s+raise exception 'forbidden'/);
+      expect(body).not.toContain("delete from");
+    }
+    // A hold is not commercial activity; a relationship change is.
+    expect(fn("public", "admin_set_retention_hold").body).not.toContain("last_activity_at");
+    expect(fn("public", "admin_set_relationship").body).toContain("last_activity_kind = 'cambio_relacion'");
+  });
+
+  it("uses 12 months without documented activity and the agreed exclusions", () => {
+    const review = fn("private", "retention_review").body;
+    expect(review).toContain("interval '12 months'");
+    for (const reason of [
+      "excluida:cliente_activo",
+      "excluida:relacion_cerrada_revision_manual",
+      "excluida:conservacion_documentada",
+      "excluida:envio_pendiente_o_incierto",
+      "excluida:actividad_en_ultimos_12_meses",
+    ]) {
+      expect(review).toContain(reason);
+    }
+  });
+
+  it("lets immutable quotes be deleted only inside a retention job for that file", () => {
+    expect(fn("private", "retention_context").body).toContain("current_setting('redcode.retention_request', true)");
+    expect(fn("private", "retention_finish").body).toContain("set_config('redcode.retention_request', v_job.request_id::text, true)");
+  });
+
+  it("erasure on request skips only the 12-month rule and the closed-relationship review", () => {
+    const body = fn("private", "erasure_begin").body;
+    expect(body).toContain("for update");
+    expect(body).toContain("x not in ('excluida:actividad_en_ultimos_12_meses', 'excluida:relacion_cerrada_revision_manual')");
+    expect(body).toContain("'solicitud_titular'");
+  });
+
+  it("re-checks eligibility under a row lock before marking a file for deletion", () => {
+    const begin = fn("private", "retention_begin").body;
+    expect(begin).toContain("for update");
+    expect(begin).toContain("private.retention_review(p_as_of)");
+    expect(begin).toContain("not_eligible");
+  });
+});
+
+describe("price catalog migration", () => {
+  const sql = readFileSync(join(dir, readdirSync(dir).find((f) => f.endsWith("_price_catalog.sql"))!), "utf8").toLowerCase();
+  const body = (name: string) => {
+    const start = sql.indexOf(`function public.${name}(`);
+    if (start < 0) throw new Error(`function ${name} not found`);
+    const end = sql.indexOf("$$;", start);
+    return sql.slice(start, end);
+  };
+
+  it("keeps the catalog private: RLS, admins read, nothing for anon or service_role", () => {
+    expect(sql).toContain("alter table public.price_catalog_entries enable row level security");
+    expect(sql).toContain("revoke all on table public.price_catalog_entries from public, anon, authenticated, service_role");
+    expect(sql).toContain("grant select on table public.price_catalog_entries to authenticated;");
+    expect(sql).toMatch(/create policy price_catalog_admin_select on public\.price_catalog_entries\s+for select to authenticated using \(\(select private\.is_admin\(\)\)\);/);
+    expect(sql).toContain("with (security_invoker = true)");
+    expect(sql).not.toMatch(/grant [^;]* to (anon|public|service_role)\b/);
+    expect(sql).not.toMatch(/grant (insert|update|delete|all)/);
+  });
+
+  it("never rewrites a catalog version: edits insert the next one", () => {
+    expect(sql).toContain("before update or delete on public.price_catalog_entries");
+    const save = body("admin_save_catalog_entry");
+    expect(save).toMatch(/begin\s+if not private\.is_admin\(\) then\s+raise exception 'forbidden'/);
+    expect(save).toContain("security definer");
+    expect(save).toContain("is distinct from p_expected_version");
+    expect(save).toContain("v_current.version + 1");
+    expect(save).not.toMatch(/update public\.price_catalog_entries|delete from public\.price_catalog_entries/);
+  });
+
+  it("stores money as integer cents, with no price for manual evaluations", () => {
+    expect(sql).toContain("price_cents bigint");
+    expect(sql).toContain("check (kind <> 'manual' or price_cents is null)");
+    expect(sql).not.toMatch(/\b(real|double precision|float\d?)\b/);
+    const code = sql.replace(/--[^\n]*/g, "");
+    expect(code).not.toMatch(/impuesto|\btax(es)?\b|descuento|discount|recurrente|recurring/);
+  });
+
+  it("keeps the admin check, conflict control and the same totals in the replaced functions", () => {
+    const draft = body("admin_save_quote_draft");
+    expect(draft).toMatch(/begin\s+if not private\.is_admin\(\) then\s+raise exception 'forbidden'/);
+    expect(draft).toContain("where quote_request_id = p_request_id and version = p_expected_version");
+    expect(draft).toContain("unknown_catalog_entry");
+    const finalize = body("admin_finalize_quote");
+    expect(finalize).toMatch(/begin\s+if not private\.is_admin\(\) then\s+raise exception 'forbidden'/);
+    expect(finalize).toContain("if v_draft.version is distinct from p_expected_version then");
+    expect(finalize).toContain("round(i.quantity * i.unit_price_cents)");
+    expect(finalize).toContain("e.price_cents");
+  });
+});
+
+describe("catalog repricing migration (2026-11)", () => {
+  const sql = readFileSync(join(dir, readdirSync(dir).find((f) => f.endsWith("_catalog_prices_2026_11.sql"))!), "utf8").toLowerCase();
+  const code = sql.replace(/--[^\n]*/g, "");
+
+  it("is owner-only and only inserts new versions", () => {
+    expect(code).toContain("revoke all on function private.catalog_reprice(jsonb, text) from public, anon, authenticated, service_role");
+    expect(code).not.toMatch(/grant /);
+    expect(code).not.toContain("security definer");
+    expect(code).toContain("insert into public.price_catalog_entries");
+    expect(code).not.toMatch(/update public\.price_catalog_entries|delete from|update public\.quote|insert into public\.quote/);
+  });
+
+  it("keeps customized prices, skips manual entries and is idempotent", () => {
+    expect(code).toContain("'personalizado_conservado'");
+    expect(code).toContain("'manual_sin_precio'");
+    expect(code).toContain("'sin_cambios'");
+    expect(code).toContain("v_cur.version + 1");
+    expect(code).toContain("pg_advisory_xact_lock(hashtext('price_catalog:' || c.code))");
+  });
+});

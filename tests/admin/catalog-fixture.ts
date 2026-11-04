@@ -1,0 +1,40 @@
+import type { CatalogEntry, CatalogKind } from "@/lib/admin/catalog";
+
+// Current catalog: codes from *_price_catalog.sql, prices approved in *_catalog_prices_2026_11.sql.
+const SEED: [string, CatalogKind, number | null, boolean?][] = [
+  ["base_landing", "base", 120000],
+  ["base_informativa", "base", 220000],
+  ["base_rediseno", "base", 150000, true],
+  ["base_orientacion", "base", null, true],
+  ["seccion_adicional", "adicional", 12500],
+  ["pagina_adicional", "adicional", 25000],
+  ["galeria", "adicional", 17500],
+  ["catalogo_productos", "adicional", 35000],
+  ["eventos", "adicional", 17500],
+  ["formulario", "adicional", 30000],
+  ["cms_basico", "adicional", 90000],
+  ["cms_coleccion", "adicional", 35000],
+  ["edicion_textos", "adicional", 17500],
+  ["redaccion", "adicional", 40000],
+  ["optimizacion_fotos", "adicional", 12500],
+  ["manual_logo", "manual", null, true],
+  ["manual_fotografia", "manual", null, true],
+  ["manual_integraciones", "manual", null, true],
+  ["manual_especial", "manual", null, true],
+];
+export const CATALOG: CatalogEntry[] = SEED.map(([code, kind, priceCents, requiresReview = false], i) => ({
+  code,
+  version: 1,
+  kind,
+  title: code,
+  unit: "u",
+  priceCents,
+  scope: "",
+  includes: "",
+  excludes: "",
+  requiresReview,
+  active: true,
+  position: i,
+  createdAt: "2026-11-03T00:00:00Z",
+  createdByEmail: "",
+}));
