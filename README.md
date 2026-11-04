@@ -354,8 +354,8 @@ Llegan a `redcodepr@gmail.com`. No hay formulario ni respuestas automáticas.
 | PROD `redcode-prod` (`ylzygfcvycbwmcyzmefy`): 11 migraciones (incluido el catálogo de precios), registro desactivado, administrador | Hecho (catálogo aplicado el 4-11-2026, con los precios aprobados). `npm run prod:verify`: todo correcto, incluido el catálogo cerrado para anónimos |
 | Plan Pro del equipo de Vercel | Hecho: activo, comprobado el 4-11-2026 |
 | Variables de Vercel Production y Turnstile de Production (pre-clearance desactivado) | Hecho. Ver "Variables de Vercel Production" |
-| Merge a `master` (despliega Production) | **Pendiente** (autorización) |
-| Dominio en Vercel y DNS en Cloudflare | **Pendiente** (autorización) |
+| Merge a `master` (despliega Production) | Hecho el 4-11-2026: `c4e23d5`, Production READY. Reversión: Instant Rollback a `942f032` |
+| Dominio en Vercel y DNS en Cloudflare | Dominios añadidos en Vercel (raíz y `www` → raíz, 308). **Pendiente:** en Cloudflare, `A @ 216.150.1.1`, `A @ 216.150.16.1` y `CNAME www 7f8b3457b08d6311.vercel-dns-017.com`, en "DNS only" |
 
 ### Turnstile (anti-spam)
 
