@@ -37,7 +37,7 @@ export type CatalogEntry = {
 };
 
 /** What the editor needs to show the origin of an item: "<code>@<version>". */
-export type CatalogOrigin = { title: string; priceCents: number | null; unit: string };
+export type CatalogOrigin = { title: string; priceCents: number | null; unit: string; kind?: CatalogKind };
 export const originKey = (code: string, version: number) => `${code}@${version}`;
 
 /** Item as the editor keeps it. Catalog fields are internal: never on the PDF. */

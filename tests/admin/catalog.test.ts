@@ -22,7 +22,7 @@ describe("adding catalog lines", () => {
     expect(catalogLine(entry("base_landing"), { reason: "Servicio solicitado" })).toEqual({
       description: "base_landing",
       quantity: "1",
-      unitPrice: "650.00",
+      unitPrice: "1200.00",
       catalogCode: "base_landing",
       catalogVersion: 1,
       suggestionReason: "Servicio solicitado",
@@ -92,23 +92,38 @@ describe("saving drafts with catalog lines", () => {
         unitPriceCents: i.unitPriceCents,
       }))
     );
-    expect(totals).toMatchObject({ totalCents: 65000 + 2 * 7500 + 10000, incomplete: false });
+    expect(totals).toMatchObject({ totalCents: 120000 + 2 * 12500 + 17500, incomplete: false });
   });
 });
 
-describe("initial catalog", () => {
-  it("seeds the agreed prices in cents, with no price for manual evaluations", () => {
-    const sql = readFileSync(
-      `supabase/migrations/${readdirSync("supabase/migrations").find((f) => f.endsWith("_price_catalog.sql"))}`,
-      "utf8"
-    );
+describe("catalog setup for a new install", () => {
+  const migration = (suffix: string) =>
+    readFileSync(`supabase/migrations/${readdirSync("supabase/migrations").find((f) => f.endsWith(suffix))}`, "utf8");
+
+  it("ends with the approved prices: initial catalog, then the 2026-11 repricing", () => {
     const seeded = new Map(
-      [...sql.matchAll(/\('([a-z_]+)', '(base|adicional|manual)', '[^']*', '[^']*', (\d+|null)(?:::bigint)?,/g)].map((m) => [
-        m[1],
-        m[3] === "null" ? null : Number(m[3]),
-      ])
+      [...migration("_price_catalog.sql").matchAll(/\('([a-z_]+)', '(base|adicional|manual)', '[^']*', '[^']*', (\d+|null)(?:::bigint)?,/g)].map(
+        (m) => [m[1], m[3] === "null" ? null : Number(m[3])]
+      )
     );
     expect(seeded.size).toBe(CATALOG.length);
-    for (const e of CATALOG) expect(seeded.get(e.code), e.code).toBe(e.priceCents);
+    const changes = JSON.parse(/'(\[[\s\S]*?\])'::jsonb/.exec(migration("_catalog_prices_2026_11.sql"))![1]) as {
+      code: string;
+      from: number;
+      to: number;
+    }[];
+    // Same rule as private.catalog_reprice(): only entries still at the previous base price change.
+    const current = new Map(seeded);
+    for (const c of changes) {
+      expect(seeded.get(c.code), `${c.code}: "from" must be the initial price`).toBe(c.from);
+      expect(Number.isInteger(c.to) && c.to > 0).toBe(true);
+      if (current.get(c.code) === c.from) current.set(c.code, c.to);
+    }
+    for (const e of CATALOG) expect(current.get(e.code), e.code).toBe(e.priceCents);
+    // Manual evaluations and orientation are never repriced.
+    for (const code of ["base_orientacion", "manual_logo", "manual_fotografia", "manual_integraciones", "manual_especial"]) {
+      expect(changes.some((c) => c.code === code)).toBe(false);
+      expect(current.get(code)).toBeNull();
+    }
   });
 });

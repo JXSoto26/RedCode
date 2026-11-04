@@ -1,6 +1,6 @@
 import "server-only";
 import { requireAdmin } from "./auth";
-import { originKey, toCatalogEntry, type CatalogEntry, type CatalogOrigin, type CatalogRow } from "./catalog";
+import { originKey, toCatalogEntry, type CatalogEntry, type CatalogKind, type CatalogOrigin, type CatalogRow } from "./catalog";
 
 /**
  * Catalog reads for /admin. Each one checks the admin and queries as the
@@ -25,12 +25,12 @@ export async function listCatalog(): Promise<CatalogEntry[]> {
  */
 export async function catalogOrigins(): Promise<Record<string, CatalogOrigin>> {
   const { supabase } = await requireAdmin();
-  const { data, error } = await supabase.from("price_catalog_entries").select("code, version, title, unit, price_cents");
+  const { data, error } = await supabase.from("price_catalog_entries").select("code, version, kind, title, unit, price_cents");
   if (error) throw new Error(`catalog_failed:${error.code}`);
   return Object.fromEntries(
-    (data as { code: string; version: number; title: string; unit: string; price_cents: number | string | null }[]).map((r) => [
+    (data as { code: string; version: number; kind: CatalogKind; title: string; unit: string; price_cents: number | string | null }[]).map((r) => [
       originKey(r.code, r.version),
-      { title: r.title, unit: r.unit, priceCents: r.price_cents === null ? null : Number(r.price_cents) },
+      { title: r.title, unit: r.unit, kind: r.kind, priceCents: r.price_cents === null ? null : Number(r.price_cents) },
     ])
   );
 }

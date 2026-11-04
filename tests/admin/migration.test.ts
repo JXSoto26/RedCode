@@ -312,3 +312,24 @@ describe("price catalog migration", () => {
     expect(finalize).toContain("e.price_cents");
   });
 });
+
+describe("catalog repricing migration (2026-11)", () => {
+  const sql = readFileSync(join(dir, readdirSync(dir).find((f) => f.endsWith("_catalog_prices_2026_11.sql"))!), "utf8").toLowerCase();
+  const code = sql.replace(/--[^\n]*/g, "");
+
+  it("is owner-only and only inserts new versions", () => {
+    expect(code).toContain("revoke all on function private.catalog_reprice(jsonb, text) from public, anon, authenticated, service_role");
+    expect(code).not.toMatch(/grant /);
+    expect(code).not.toContain("security definer");
+    expect(code).toContain("insert into public.price_catalog_entries");
+    expect(code).not.toMatch(/update public\.price_catalog_entries|delete from|update public\.quote|insert into public\.quote/);
+  });
+
+  it("keeps customized prices, skips manual entries and is idempotent", () => {
+    expect(code).toContain("'personalizado_conservado'");
+    expect(code).toContain("'manual_sin_precio'");
+    expect(code).toContain("'sin_cambios'");
+    expect(code).toContain("v_cur.version + 1");
+    expect(code).toContain("pg_advisory_xact_lock(hashtext('price_catalog:' || c.code))");
+  });
+});

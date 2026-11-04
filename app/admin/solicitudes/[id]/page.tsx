@@ -14,6 +14,7 @@ import { requireAdmin } from "@/lib/admin/auth";
 import { catalogOrigins, listCatalog } from "@/lib/admin/catalog-data";
 import { suggestForRequest } from "@/lib/admin/catalog-rules";
 import { getRequestDetail } from "@/lib/admin/data";
+import { REFERENCE_RATE_CENTS, formatTenthsOfHour, referenceHours } from "@/lib/admin/reference-hours";
 import { pendingFields, toEditorItems } from "@/lib/admin/draft";
 import {
   ACTIVITY_LABELS,
@@ -65,6 +66,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const [quotes, catalog, origins] = await Promise.all([listQuotesForRequest(request.id), listCatalog(), catalogOrigins()]);
   const activeCatalog = catalog.filter((e) => e.active);
   const suggestions = suggestForRequest(data, catalog);
+  const hours = draft ? referenceHours(draft.items, origins) : null;
   const problems = finalizeProblems(draft);
   const alreadyFinalized = draft ? quotes.find((q) => q.draftVersion === draft.version) : undefined;
   const nextRevision = (quotes[0]?.revision ?? 0) + 1;
@@ -176,6 +178,35 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
               suggestions={suggestions}
               origins={origins}
             />
+            {hours && (
+              <div className="mt-6 rounded-xl border border-dashed border-border p-4 text-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-2">
+                  Referencia interna · solo administración
+                </p>
+                {hours.status === "ok" ? (
+                  <p className="mt-1">
+                    Horas de referencia: <span className="font-semibold tabular-nums">{formatTenthsOfHour(hours.tenthsOfHour)}</span>
+                    <span className="text-muted">
+                      {" "}
+                      = subtotal de servicios {formatCents(hours.serviceCents)} / {formatCents(REFERENCE_RATE_CENTS)} por hora
+                    </span>
+                  </p>
+                ) : (
+                  <>
+                    <p className="mt-1">Horas de referencia: pendiente.</p>
+                    <ul className="mt-1 list-inside list-disc text-muted">
+                      {hours.reasons.map((r) => (
+                        <li key={r}>{r}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+                <p className="mt-2 text-xs text-muted-2">
+                  Calculado sobre el borrador guardado. No es una estimación de duración ni un compromiso con el cliente, y no
+                  aparece en el PDF ni en los emails. Excluye costos de terceros y gastos trasladados al cliente.
+                </p>
+              </div>
+            )}
           </Section>
 
           <Section title="Cotizaciones finalizadas">

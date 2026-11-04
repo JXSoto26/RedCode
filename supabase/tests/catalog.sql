@@ -37,6 +37,57 @@ begin
      or exists (select 1 from public.price_catalog_entries where kind = 'manual' and price_cents is not null) then
     raise exception 'FAIL: seed values';
   end if;
+  -- Approved prices (2026-11-04) are the current versions; manual evaluations keep no price.
+  if exists (
+    select 1 from (values
+      ('base_landing', 120000::bigint), ('base_informativa', 220000), ('base_rediseno', 150000), ('seccion_adicional', 12500),
+      ('pagina_adicional', 25000), ('galeria', 17500), ('catalogo_productos', 35000), ('eventos', 17500),
+      ('formulario', 30000), ('cms_basico', 90000), ('cms_coleccion', 35000), ('edicion_textos', 17500),
+      ('redaccion', 40000), ('optimizacion_fotos', 12500)
+    ) as x(code, cents)
+    where (select price_cents from public.price_catalog_current c where c.code = x.code) is distinct from x.cents
+  ) or exists (select 1 from public.price_catalog_current where kind = 'manual' and price_cents is not null)
+    or (select price_cents from public.price_catalog_current where code = 'base_orientacion') is not null
+    or not (select requires_review from public.price_catalog_current where code = 'base_rediseno') then
+    raise exception 'FAIL: approved prices';
+  end if;
+end $$;
+
+-- Repricing is idempotent and never overwrites a customized price -----------------
+do $$
+declare
+  n_before integer := (select count(*) from public.price_catalog_entries);
+  r record;
+  approved constant jsonb := '[
+    {"code":"base_landing","from":65000,"to":120000}, {"code":"galeria","from":10000,"to":17500},
+    {"code":"manual_logo","from":0,"to":1}
+  ]';
+begin
+  -- Same update again: nothing to do, no new versions.
+  for r in select * from private.catalog_reprice(approved, 'prueba') loop
+    if r.r_action not in ('sin_cambios', 'manual_sin_precio') then raise exception 'FAIL: repeat changed %', r.r_code; end if;
+  end loop;
+  if (select count(*) from public.price_catalog_entries) <> n_before then raise exception 'FAIL: repeat created versions'; end if;
+
+  -- An admin-customized price is kept and reported, not overwritten.
+  insert into public.price_catalog_entries (code, version, kind, title, unit, price_cents, position, created_by_email)
+  select code, version + 1, kind, title, unit, 19900, position, 'prueba'
+  from public.price_catalog_current where code = 'galeria';
+  select * into r from private.catalog_reprice('[{"code":"galeria","from":10000,"to":17500}]', 'prueba');
+  if r.r_action <> 'personalizado_conservado' or r.r_current_cents <> 19900
+     or (select price_cents from public.price_catalog_current where code = 'galeria') <> 19900 then
+    raise exception 'FAIL: customized price overwritten';
+  end if;
+  -- An entry still at the previous base price is updated as a new version, other fields kept.
+  insert into public.price_catalog_entries (code, version, kind, title, unit, price_cents, scope, position, created_by_email)
+  select code, version + 1, kind, title, unit, 7500, 'Alcance de prueba', position, 'prueba'
+  from public.price_catalog_current where code = 'seccion_adicional';
+  select * into r from private.catalog_reprice('[{"code":"seccion_adicional","from":7500,"to":12500}]', 'prueba');
+  if r.r_action <> 'actualizado'
+     or (select price_cents from public.price_catalog_current where code = 'seccion_adicional') <> 12500
+     or (select scope from public.price_catalog_current where code = 'seccion_adicional') <> 'Alcance de prueba' then
+    raise exception 'FAIL: reprice of a base-priced entry';
+  end if;
 end $$;
 
 -- anon and service_role: nothing -------------------------------------------------
@@ -59,6 +110,11 @@ begin
     raise exception 'FAIL: anon can edit the catalog';
   exception when insufficient_privilege then null;
   end;
+  begin
+    perform private.catalog_reprice('[]', 'x');
+    raise exception 'FAIL: anon can reprice the catalog';
+  exception when insufficient_privilege then null;
+  end;
 end $$;
 reset role;
 
@@ -68,6 +124,11 @@ begin
   begin
     perform count(*) from public.price_catalog_entries;
     raise exception 'FAIL: service_role can read the catalog';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform private.catalog_reprice('[]', 'x');
+    raise exception 'FAIL: service_role can reprice the catalog';
   exception when insufficient_privilege then null;
   end;
 end $$;
@@ -86,6 +147,11 @@ begin
     raise exception 'FAIL: non-admin can edit the catalog';
   exception when sqlstate 'RC403' then null;
   end;
+  begin
+    perform private.catalog_reprice('[]', 'x');
+    raise exception 'FAIL: signed-in user can reprice the catalog';
+  exception when insufficient_privilege then null;
+  end;
 end $$;
 reset role;
 
@@ -95,6 +161,7 @@ select set_config('request.jwt.claims', '{"role":"authenticated","sub":"00000000
 do $$
 declare
   v integer;
+  cur integer := (select version from public.price_catalog_current where code = 'base_landing');
   q record;
   it record;
 begin
@@ -120,12 +187,12 @@ begin
   exception when sqlstate 'RC422' then null;
   end;
 
-  -- Editing the catalog creates version 2; a stale tab gets a conflict.
-  if public.admin_save_catalog_entry('base_landing', 1, '{"title":"Landing page","unit":"proyecto","priceCents":"72000","active":true}') <> 2 then
-    raise exception 'FAIL: catalog version 2';
+  -- Editing the catalog creates the next version; a stale tab gets a conflict.
+  if public.admin_save_catalog_entry('base_landing', cur, '{"title":"Landing page","unit":"proyecto","priceCents":"72000","active":true}') <> cur + 1 then
+    raise exception 'FAIL: next catalog version';
   end if;
   begin
-    perform public.admin_save_catalog_entry('base_landing', 1, '{"title":"Otra pestaña","unit":"proyecto","priceCents":"1"}');
+    perform public.admin_save_catalog_entry('base_landing', cur, '{"title":"Otra pestaña","unit":"proyecto","priceCents":"1"}');
     raise exception 'FAIL: stale catalog edit accepted';
   exception when sqlstate 'RC409' then null;
   end;
@@ -177,7 +244,7 @@ begin
   end if;
 
   -- A later catalog edit does not touch the finalized revision.
-  perform public.admin_save_catalog_entry('base_landing', 2, '{"title":"Landing page","unit":"proyecto","priceCents":"99900"}');
+  perform public.admin_save_catalog_entry('base_landing', cur + 1, '{"title":"Landing page","unit":"proyecto","priceCents":"99900"}');
   if (select catalog_price_cents from public.quote_items where quote_id = q.quote_id and position = 0) <> 65000 then
     raise exception 'FAIL: finalized item changed by a catalog edit';
   end if;

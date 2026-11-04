@@ -38,7 +38,7 @@ describe("privacy of internal notes and drafts", () => {
 });
 
 describe("privacy of the price catalog", () => {
-  const CATALOG_NAMES = /price_catalog|catalog_code|catalog_version|catalog_price|suggestion_reason|adjustment_note|catalog-rules|catalogCode|suggestionReason|adjustmentNote/;
+  const CATALOG_NAMES = /reference-hours|referenceHours|REFERENCE_RATE|Horas de referencia|price_catalog|catalog_code|catalog_version|catalog_price|suggestion_reason|adjustment_note|catalog-rules|catalogCode|suggestionReason|adjustmentNote/;
 
   it.each(PUBLIC_CODE)("%s never references the catalog or its internal notes", (path) => {
     const full = join(process.cwd(), path);
