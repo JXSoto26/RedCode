@@ -38,9 +38,9 @@ export const PROJECTS: Project[] = [
     slug: "tabernaculo-de-poder",
     title: "Tabernáculo de Poder",
     category: "Sitio web para iglesia",
-    desc: "Sitio web de una iglesia cristiana en Cabo Rojo, Puerto Rico: información de la iglesia, ministerios, eventos y un formulario para conectar con quienes la visitan.",
+    desc: "Sitio web de una iglesia cristiana en Cabo Rojo, Puerto Rico: información de la iglesia, ministerios, eventos, prédicas y un formulario para conectar con quienes la visitan.",
     href: "https://tabernaculodepoder.com",
-    highlights: ["Ministerios y eventos", "Formulario de conexión", "Panel privado de contenido", "Adaptado a celulares"],
+    highlights: ["Ministerios, eventos y prédicas", "Formulario de conexión", "Panel privado de contenido y contactos", "Adaptado a celulares"],
     images: {
       desktop: {
         src: "/projects/tabernaculo-de-poder/escritorio.webp",
