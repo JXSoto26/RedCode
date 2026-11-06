@@ -101,7 +101,8 @@ describe("email logo asset", () => {
 describe("email template migration", () => {
   it("keeps existing rows on version 1 and gives new rows version 2, adding columns only", () => {
     const file = readdirSync("supabase/migrations").find((f) => f.endsWith("_email_template_version.sql"))!;
-    const sql = readFileSync(`supabase/migrations/${file}`, "utf8").replace(/--[^\n]*/g, "").toLowerCase();
+    // Git may check SQL out with CRLF on Windows: compare with LF line endings.
+    const sql = readFileSync(`supabase/migrations/${file}`, "utf8").replace(/\r\n/g, "\n").replace(/--[^\n]*/g, "").toLowerCase();
     for (const table of ["quote_requests", "quote_sends"]) {
       expect(sql).toContain(`alter table public.${table}\n  add column email_template smallint not null default 1`);
       expect(sql).toContain(`alter table public.${table} alter column email_template set default 2;`);
