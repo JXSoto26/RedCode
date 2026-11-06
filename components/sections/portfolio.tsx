@@ -1,17 +1,16 @@
-import Image from "next/image";
-import { ArrowUpRight } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, ArrowUpRight, Check } from "lucide-react";
+import { Reveal } from "@/components/motion/reveal";
+import { ProjectShowcase } from "@/components/projects/project-showcase";
+import { Button } from "@/components/ui/button";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { RevealGroup, RevealItem } from "@/components/motion/reveal";
-import { cn } from "@/lib/utils";
 import { PROJECTS } from "@/lib/projects";
+import { cn } from "@/lib/utils";
 
-const FALLBACK_GRADIENTS = [
-  "from-brand-600/40 via-brand-800/30 to-background",
-  "from-rose-500/30 via-brand-900/30 to-background",
-  "from-orange-500/25 via-brand-800/30 to-background",
-  "from-brand-500/35 via-brand-900/25 to-background",
-];
-
+/**
+ * Real projects only, each one presented in full (screenshots, what it
+ * includes, case study and live site). Hidden while there are none.
+ */
 export function Portfolio() {
   if (PROJECTS.length === 0) return null;
 
@@ -22,76 +21,60 @@ export function Portfolio() {
         <SectionHeading
           eyebrow="Portafolio"
           title="Proyectos realizados"
-          description="Algunas de las páginas que hemos diseñado y desarrollado."
+          description="Sitios que hemos diseñado y desarrollado para negocios y organizaciones reales."
         />
 
-        <RevealGroup className="mt-16 grid gap-5 md:grid-cols-2">
+        <div className="mt-16 flex flex-col gap-20">
           {PROJECTS.map((project, i) => (
-            <RevealItem key={project.title}>
-              <article className="group relative overflow-hidden rounded-2xl border border-border bg-surface transition-colors duration-300 hover:border-brand-600/40 focus-within:ring-2 focus-within:ring-brand-500/70">
-                {/* Thumbnail */}
-                <div
-                  className={cn(
-                    "relative aspect-[16/10] overflow-hidden bg-gradient-to-br",
-                    FALLBACK_GRADIENTS[i % FALLBACK_GRADIENTS.length]
-                  )}
-                >
-                  {project.image ? (
-                    <Image
-                      src={project.image}
-                      alt={`Captura de la página de ${project.title}`}
-                      fill
-                      sizes="(min-width: 768px) 50vw, 100vw"
-                      className="object-cover object-top"
-                    />
-                  ) : (
-                    <>
-                      <div className="absolute inset-0 bg-grid opacity-40" />
-                      <div className="absolute inset-0 grid place-items-center">
-                        <span className="font-mono text-2xl font-bold tracking-tight text-white/90 sm:text-3xl">
-                          {project.title}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                  <div className="absolute inset-0 bg-background/0 transition-colors duration-300 group-hover:bg-background/20" />
-                </div>
+            <article
+              key={project.slug}
+              aria-labelledby={`proyecto-${project.slug}`}
+              className="grid items-center gap-10 lg:grid-cols-[1.15fr_1fr] lg:gap-14"
+            >
+              <Reveal className={cn("min-w-0", i % 2 === 1 && "lg:order-2")}>
+                <ProjectShowcase project={project} />
+              </Reveal>
 
-                {/* Meta */}
-                <div className="flex items-start justify-between gap-4 p-6">
-                  <div>
-                    <span className="text-xs font-semibold uppercase tracking-widest text-brand-400">
-                      {project.category}
-                    </span>
-                    <h3 className="mt-2 text-lg font-semibold">
-                      {project.href ? (
-                        <a
-                          href={project.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="after:absolute after:inset-0 focus-visible:outline-none"
-                        >
-                          {project.title}
-                          <span className="sr-only"> (abre en una pestaña nueva)</span>
-                        </a>
-                      ) : (
-                        project.title
-                      )}
-                    </h3>
-                    <p className="mt-1.5 text-sm leading-relaxed text-muted">
-                      {project.desc}
-                    </p>
-                  </div>
+              <Reveal delay={0.1} className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-widest text-brand-400">{project.category}</p>
+                <h3 id={`proyecto-${project.slug}`} className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">
+                  {project.title}
+                </h3>
+                <p className="mt-4 text-pretty leading-relaxed text-muted">{project.desc}</p>
+
+                <ul className="mt-6 grid gap-2.5 sm:grid-cols-2">
+                  {project.highlights.map((h) => (
+                    <li key={h} className="flex items-start gap-2 text-sm text-foreground/90">
+                      <Check className="mt-0.5 size-4 shrink-0 text-brand-400" aria-hidden />
+                      {h}
+                    </li>
+                  ))}
+                </ul>
+
+                <p className="mt-6 text-sm text-muted-2">Diseño y desarrollo: RedCode Web Design Studio.</p>
+
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <Button asChild>
+                    <Link href={`/proyectos/${project.slug}`}>
+                      Ver proyecto
+                      <ArrowRight aria-hidden />
+                      <span className="sr-only">: {project.title}</span>
+                    </Link>
+                  </Button>
                   {project.href && (
-                    <span className="mt-1 grid size-9 shrink-0 place-items-center rounded-full border border-border text-muted transition-all duration-300 group-hover:border-brand-600/50 group-hover:bg-brand-600/10 group-hover:text-brand-400">
-                      <ArrowUpRight className="size-4.5" />
-                    </span>
+                    <Button asChild variant="secondary">
+                      <a href={project.href} target="_blank" rel="noopener noreferrer">
+                        Visitar sitio
+                        <ArrowUpRight aria-hidden />
+                        <span className="sr-only"> de {project.title} (abre en una pestaña nueva)</span>
+                      </a>
+                    </Button>
                   )}
                 </div>
-              </article>
-            </RevealItem>
+              </Reveal>
+            </article>
           ))}
-        </RevealGroup>
+        </div>
       </div>
     </section>
   );

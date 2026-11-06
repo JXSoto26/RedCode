@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { privacyPolicyFinal } from "@/lib/privacy";
+import { PROJECTS } from "@/lib/projects";
 import { site } from "@/lib/site";
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -9,6 +10,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: site.url, changeFrequency: "monthly", priority: 1 },
     { url: `${site.url}/cotizar`, changeFrequency: "monthly", priority: 0.8 },
+    ...PROJECTS.map((p) => ({
+      url: `${site.url}/proyectos/${p.slug}`,
+      changeFrequency: "yearly" as const,
+      priority: 0.6,
+    })),
     // Listed only once the policy is final (the draft is noindex).
     ...(privacyPolicyFinal()
       ? [{ url: `${site.url}/privacidad`, changeFrequency: "yearly" as const, priority: 0.3 }]
