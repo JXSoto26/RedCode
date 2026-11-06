@@ -11,6 +11,7 @@
 import { DEV_PROJECT_REF } from "@/lib/deployment";
 import { getEmailSettings } from "@/lib/quote/config";
 import type { NotificationStatus } from "@/lib/quote/options";
+import { emailTemplateOf } from "@/lib/email/layout";
 import { sendNotifications } from "@/lib/quote/service";
 import {
   createSupabaseAdminClient,
@@ -74,7 +75,7 @@ async function main() {
     if (kinds.length === 0) continue;
 
     const visitor = await sendNotifications(
-      { id: row.id, reference: row.reference },
+      { id: row.id, reference: row.reference, emailTemplate: emailTemplateOf(row.email_template) },
       fromRow(row),
       { repo, email, log: (event, details) => console.warn(event, details) },
       { visitor: row.visitor_email_attempts, owner: row.owner_email_attempts },

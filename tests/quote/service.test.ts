@@ -50,6 +50,21 @@ describe("submitQuoteRequest", () => {
     expect(t.rows[0].notifications.owner).toMatchObject({ status: "enviado", attempts: 1 });
   });
 
+  it("renders both emails with the template version stored with the request", async () => {
+    const branded = setup({ repo: { emailTemplate: 2 } });
+    await submitQuoteRequest(envelope(), ctx, branded.deps);
+    expect(branded.sent.map((m) => m.html.includes("/email/redcode-logo-v1.png"))).toEqual([true, true]);
+
+    // A database without the column (or an old row) keeps the original design.
+    const legacy = setup({ repo: { emailTemplate: null } });
+    await submitQuoteRequest(envelope(), ctx, legacy.deps);
+    expect(legacy.sent.some((m) => m.html.includes("<img"))).toBe(false);
+    // Sender, Reply-To, recipients and idempotency keys do not depend on the design.
+    expect(legacy.sent.map((m) => [m.to, m.replyTo, m.idempotencyKey.replace(/id-\d+/, "id")])).toEqual(
+      branded.sent.map((m) => [m.to, m.replyTo, m.idempotencyKey.replace(/id-\d+/, "id")])
+    );
+  });
+
   it("does not promise response times in the visitor email", async () => {
     const t = setup();
     await submitQuoteRequest(envelope(), ctx, t.deps);

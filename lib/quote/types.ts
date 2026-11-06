@@ -1,3 +1,4 @@
+import type { EmailTemplate } from "@/lib/email/layout";
 import type { NotificationStatus } from "./options";
 import type { QuoteRequestData } from "./schema";
 
@@ -9,6 +10,8 @@ export type StoredQuote = {
   createdAt: string;
   payloadHash: string;
   visitorEmailStatus: NotificationStatus;
+  /** Email template version stored with the request (retries reuse it). */
+  emailTemplate?: EmailTemplate;
 };
 
 export type NewQuoteRecord = {

@@ -16,7 +16,13 @@ type Row = NewQuoteRecord & {
 };
 
 /** In-memory repository with the same unique constraints as the database. */
-export function createFakeRepo(options: { failInsert?: boolean; failRateLimit?: boolean } = {}) {
+/**
+ * In-memory repository. `emailTemplate` mimics the column default for new rows
+ * (2 after the migration); null mimics a database without the column.
+ */
+export function createFakeRepo(
+  options: { failInsert?: boolean; failRateLimit?: boolean; emailTemplate?: 1 | 2 | null } = {}
+) {
   const rows: Row[] = [];
   const hits = new Map<string, number>();
   let seq = 0;
@@ -26,6 +32,7 @@ export function createFakeRepo(options: { failInsert?: boolean; failRateLimit?: 
     createdAt: r.createdAt,
     payloadHash: r.payloadHash,
     visitorEmailStatus: r.notifications.visitor?.status ?? "pendiente",
+    ...(options.emailTemplate !== null && { emailTemplate: options.emailTemplate ?? 2 }),
   });
   const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
