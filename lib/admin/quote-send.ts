@@ -1,3 +1,4 @@
+import { emailDocument, type EmailTemplate } from "@/lib/email/layout";
 import { site } from "@/lib/site";
 import type { StoredDraft } from "./draft";
 import { computeTotals } from "./money";
@@ -115,16 +116,23 @@ const escapeHtml = (s: string) =>
 /** Subjects are single-line. */
 export const oneLine = (s: string) => s.replace(/[\r\n\t]+/g, " ").trim();
 
-/** HTML version of the plain-text body: escaped, paragraphs and line breaks kept. */
-export function quoteEmailHtml(body: string) {
+/**
+ * HTML version of the plain-text body: escaped, paragraphs and line breaks
+ * kept, in the frame of the send's stored template version (a retry renders
+ * exactly what the first attempt sent). `logoUrl` is only for local previews.
+ */
+export function quoteEmailHtml(body: string, template: EmailTemplate, logoUrl?: string) {
   const paragraphs = body
     .trim()
     .split(/\r?\n\s*\r?\n/)
     .map((p) => `<p style="margin:0 0 14px">${escapeHtml(p.trim()).replace(/\r?\n/g, "<br>")}</p>`)
     .join("\n");
-  return `<!doctype html><html lang="es"><body style="font-family:Arial,Helvetica,sans-serif;color:#18181b;line-height:1.55;max-width:600px;margin:0 auto;padding:16px">
-${paragraphs}
-</body></html>`;
+  return emailDocument(paragraphs, template, {
+    legacyBodyStyle:
+      "font-family:Arial,Helvetica,sans-serif;color:#18181b;line-height:1.55;max-width:600px;margin:0 auto;padding:16px",
+    lineHeight: "1.55",
+    logoUrl,
+  });
 }
 
 export const pdfFilename = (quoteReference: string, revision: number) =>

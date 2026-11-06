@@ -175,7 +175,7 @@ async function deliver(supabase: AdminSupabase, settings: EmailSettingsT, quote:
       to: send.recipientEmail,
       subject: send.subject,
       text: send.body,
-      html: quoteEmailHtml(send.body),
+      html: quoteEmailHtml(send.body, send.emailTemplate),
       ...(replyTo && { replyTo }),
       idempotencyKey: `quote-send/${send.id}`,
       attachments: [{ filename: pdfFilename(quote.quoteReference, quote.revision), content: Buffer.from(pdf).toString("base64") }],

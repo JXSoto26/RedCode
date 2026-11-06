@@ -165,7 +165,7 @@ function replay(existing: StoredQuote, payloadHash: string): SubmitResult {
  * Returns the visitor confirmation status.
  */
 export async function sendNotifications(
-  quote: Pick<StoredQuote, "id" | "reference">,
+  quote: Pick<StoredQuote, "id" | "reference" | "emailTemplate">,
   request: QuoteRequestData,
   deps: Pick<SubmitDeps, "repo" | "email" | "log">,
   previousAttempts: Partial<Record<NotificationKind, number>> = {},
@@ -173,11 +173,13 @@ export async function sendNotifications(
 ): Promise<NotificationStatus> {
   const log = deps.log ?? noopLog;
   const email = deps.email;
+  // The version stored with the request: a retry renders exactly the first email.
+  const template = quote.emailTemplate ?? 1;
 
   const build = (kind: NotificationKind): EmailMessage | null => {
     if (!email) return null;
     if (kind === "visitor") {
-      const m = visitorConfirmationEmail(quote.reference, request, Boolean(email.replyTo));
+      const m = visitorConfirmationEmail(quote.reference, request, Boolean(email.replyTo), template);
       return {
         to: request.email,
         ...m,
@@ -185,7 +187,7 @@ export async function sendNotifications(
         idempotencyKey: `quote-${quote.id}-visitor`,
       };
     }
-    const m = ownerNotificationEmail(quote.reference, request);
+    const m = ownerNotificationEmail(quote.reference, request, template);
     return {
       to: email.ownerEmail,
       ...m,

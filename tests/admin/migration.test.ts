@@ -1,6 +1,9 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync as readRaw, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+
+// Git may check SQL out with CRLF on Windows: compare with LF line endings.
+const readFileSync = (path: string, encoding: "utf8") => readRaw(path, encoding).replace(/\r\n/g, "\n");
 import { REQUEST_STATUSES } from "@/lib/quote/options";
 
 // Static checks on the admin panel SQL. The live checks (anon, signed-in

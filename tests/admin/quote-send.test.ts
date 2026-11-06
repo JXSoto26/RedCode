@@ -89,9 +89,11 @@ describe("delivery and email content", () => {
   });
 
   it("escapes HTML and keeps paragraphs; subjects are one line", () => {
-    const html = quoteEmailHtml("Hola <b>Ana</b> & co:\nlínea 2\n\nOtro párrafo");
-    expect(html).toContain("Hola &lt;b&gt;Ana&lt;/b&gt; &amp; co:<br>línea 2</p>");
-    expect(html).toContain(">Otro párrafo</p>");
+    for (const template of [1, 2] as const) {
+      const html = quoteEmailHtml("Hola <b>Ana</b> & co:\nlínea 2\n\nOtro párrafo", template);
+      expect(html).toContain("Hola &lt;b&gt;Ana&lt;/b&gt; &amp; co:<br>línea 2</p>");
+      expect(html).toContain(">Otro párrafo</p>");
+    }
     expect(oneLine("Asunto\r\nBcc: x@y.com")).toBe("Asunto Bcc: x@y.com");
     expect(pdfFilename("COT-ABCD-EFGH", 3)).toBe("Cotizacion-COT-ABCD-EFGH-rev3.pdf");
   });

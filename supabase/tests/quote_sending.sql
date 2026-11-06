@@ -217,6 +217,12 @@ begin
   select * into r from public.admin_begin_quote_send(q1, '00000000-0000-4000-8000-00000000e001', 'envio', 'Asunto', 'Cuerpo', 'RedCode <onboarding@resend.dev>', 'redcodepr@gmail.com');
   if not r.existing or r.send_id <> s1 then raise exception 'FAIL: same key created another send'; end if;
 
+  -- New sends and requests get the branded template (2); retries of a send read its stored version.
+  if (select email_template from public.quote_sends where id = s1) <> 2
+     or (select email_template from public.quote_requests where id = '00000000-0000-4000-8000-0000000000c2') <> 2 then
+    raise exception 'FAIL: new rows must use email template 2';
+  end if;
+
   -- The recipient and PDF come from the quote, never from the caller.
   select count(*) into n from public.quote_sends
   where id = s1 and recipient_email = 'sql@example.com' and subject = 'Asunto'

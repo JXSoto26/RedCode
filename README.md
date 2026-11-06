@@ -219,6 +219,9 @@ La migración inicial crea `quote_requests` y `quote_rate_limits` con RLS activa
 
 ### Email (Resend)
 
+- **Diseño con logo (plantilla 2):** cabecera blanca con el logo horizontal, contenido y un pie con la marca en texto. Lo comparten la confirmación, el aviso interno y el email de cotización ([lib/email/layout.ts](lib/email/layout.ts)). El logo es [public/email/redcode-logo-v1.png](public/email/redcode-logo-v1.png) (440×70, mostrado a 220×35), servido desde `https://redcodewebdesign.com/email/redcode-logo-v1.png`. Si cambia el logo, usa un archivo nuevo (`-v2`); nunca sobrescribas el actual, porque emails ya enviados lo enlazan.
+- **Versión de plantilla por fila:** `quote_requests.email_template` y `quote_sends.email_template`. Las filas anteriores al cambio tienen 1 (diseño original, solo texto) y las nuevas 2. Los reintentos (`quote:retry-emails` y "Repetir envío con la misma clave") vuelven a generar exactamente el HTML de su versión, así que la petición a Resend con la misma clave es idéntica. Si la columna aún no existe, el código usa 1.
+- **Avatar del remitente:** el círculo con una letra que muestran Gmail y otros clientes junto al remitente no forma parte del HTML. Lo genera el cliente (inicial del nombre del remitente o de la dirección) y no cambia con este diseño. Un logo ahí requiere BIMI (registro DNS, DMARC con `p=quarantine` o `reject` y, para Gmail, un certificado VMC/CMC).
 - La solicitud **se guarda primero**. Si un email falla, la solicitud sigue siendo válida, el fallo queda registrado en la fila y el visitante ve un mensaje honesto, sin que se le pida reenviar.
 - **Entrega restringida por defecto:** solo reciben email las direcciones de `QUOTE_EMAIL_ALLOWLIST`, y con la lista vacía no se envía nada. En producción, configura `QUOTE_EMAIL_DELIVERY=all`.
 - **Reintentos:** `npm run quote:retry-emails` reenvía los emails `pendiente` o `fallido`. Para reenviar también los `omitido` (por ejemplo, después de configurar el email), usa `npm run quote:retry-emails -- --include-omitted`. Cada email lleva una clave de idempotencia de Resend, así que un reintento no envía dos veces el mismo mensaje.
@@ -344,7 +347,7 @@ Llegan a `redcodepr@gmail.com`. No hay formulario ni respuestas automáticas.
 
 ## Lanzamiento
 
-**Estado: en curso (4-11-2026).** Política vigente, PROD preparado y Vercel Pro. Quedan el merge a `master`, el dominio y la prueba en el dominio propio. Cada punto está protegido en el código: si falta algo, el formulario se desactiva, no se abre.
+**Estado: lanzado (6-11-2026).** `https://redcodewebdesign.com` sirve Production con HTTPS, la política vigente, Supabase PROD y email abierto a cualquier destinatario (`QUOTE_EMAIL_DELIVERY=all`). Despliegue activo: `dpl_X56VJ7Svj4UvPJXnEGFqkNQHGm1P` (commit `c4e23d5`, *redeploy* del 6-11-2026 para aplicar `all`). La prueba completa (formulario, Turnstile, panel, catálogo, PDF y emails) la confirmó el propietario en el dominio propio.
 
 ### Bloqueantes
 
@@ -354,8 +357,8 @@ Llegan a `redcodepr@gmail.com`. No hay formulario ni respuestas automáticas.
 | PROD `redcode-prod` (`ylzygfcvycbwmcyzmefy`): 11 migraciones (incluido el catálogo de precios), registro desactivado, administrador | Hecho (catálogo aplicado el 4-11-2026, con los precios aprobados). `npm run prod:verify`: todo correcto, incluido el catálogo cerrado para anónimos |
 | Plan Pro del equipo de Vercel | Hecho: activo, comprobado el 4-11-2026 |
 | Variables de Vercel Production y Turnstile de Production (pre-clearance desactivado) | Hecho. Ver "Variables de Vercel Production" |
-| Merge a `master` (despliega Production) | **Pendiente** (autorización) |
-| Dominio en Vercel y DNS en Cloudflare | **Pendiente** (autorización) |
+| Merge a `master` (despliega Production) | Hecho el 4-11-2026: `c4e23d5`, Production READY. Reversión: Instant Rollback a `942f032` |
+| Dominio en Vercel y DNS en Cloudflare | Hecho el 6-11-2026: `A @ 216.150.1.1`, `A @ 216.150.16.1` y `CNAME www 7f8b3457b08d6311.vercel-dns-017.com` (DNS only). Certificado Let's Encrypt para la raíz y `www` (válido hasta el 4-2-2027, Vercel lo renueva). http → https y `www` → raíz con 308, conservando la ruta |
 
 ### Turnstile (anti-spam)
 
@@ -418,7 +421,7 @@ Solo en el entorno **Production**, con valores **propios de PROD**. Nada de DEV.
 | `RESEND_API_KEY` | Recomendado: una clave propia de Production, de solo envío |
 | `QUOTE_EMAIL_FROM` | `RedCode Web Design Studio <cotizaciones@redcodewebdesign.com>` |
 | `QUOTE_NOTIFY_EMAIL`, `QUOTE_EMAIL_REPLY_TO` | `redcodepr@gmail.com` |
-| `QUOTE_EMAIL_DELIVERY` / `QUOTE_EMAIL_ALLOWLIST` | `allowlist` / `redcodepr@gmail.com` durante la prueba de lanzamiento (reestablecidos explícitamente el 3-11-2026); `all` solo después |
+| `QUOTE_EMAIL_DELIVERY` / `QUOTE_EMAIL_ALLOWLIST` | Production: `all` desde el 6-11-2026 (la lista se ignora). Preview: `allowlist` con `redcodepr@gmail.com`; la guarda impide `all` en Preview. Para volver a restringir: `allowlist` en Production y *redeploy* |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Widget real de Production |
 | `TURNSTILE_EXPECTED_HOSTNAMES` | `redcodewebdesign.com,www.redcodewebdesign.com` |
 
@@ -460,12 +463,12 @@ El día del lanzamiento, en este orden:
    - `/admin` (cuenta PROD): la solicitud aparece en estado `nueva`. Los dos emails automáticos figuran como "Aceptado por Resend". Comprobar en Gmail que llegaron: solo así se confirma la entrega.
    - En la solicitud de prueba: borrador PRUEBA → **Finalizar** → abrir el PDF → **Confirmar envío** a `redcodepr@gmail.com`. Comprobar el registro "aceptado" y la llegada a Gmail.
    - Revisar en Vercel los errores de Production.
-5. **Después:** la solicitud de prueba se puede borrar con `npm run retention:prod -- erase --only=<id>`, previa autorización. Decidir más adelante si pasar a `QUOTE_EMAIL_DELIVERY=all`.
+5. **Después:** las solicitudes de prueba en PROD se pueden borrar con `npm run retention:prod -- erase --only=<id>`, solo con autorización expresa. `QUOTE_EMAIL_DELIVERY=all` se activó el 6-11-2026, tras la prueba del propietario. Cambiar la variable no reenvía emails históricos, omitidos ni fallidos: los reintentos solo se lanzan a mano (`quote:retry-emails:prod`).
 
 ### Reversión
 
 - **Código:**
-  - En Vercel, **Instant Rollback** al despliegue de Production anterior. Hoy es `942f032`, que no usa la base.
+  - En Vercel, **Instant Rollback**: a `dpl_BPFWfjpGT6uYpVCQRW9ZTQCFhGWT` (mismo código, email en allowlist) o a `942f032` (sitio anterior, sin formulario ni base).
   - O `git revert` del merge en `master`.
   - Ninguna de las dos opciones toca datos.
 - **Cerrar el formulario sin desplegar código:** quita `TURNSTILE_SECRET_KEY` o `SUPABASE_URL` de Production y vuelve a desplegar. El formulario se desactiva solo.

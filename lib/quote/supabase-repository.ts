@@ -1,11 +1,13 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { emailTemplateOf } from "@/lib/email/layout";
 import type { NotificationStatus } from "./options";
 import type { QuoteRequestData } from "./schema";
 import type { InsertResult, NotificationKind, QuoteRepository, StoredQuote } from "./types";
 
 const TABLE = "quote_requests";
-const STORED_COLUMNS = "id, reference, created_at, payload_hash, visitor_email_status";
+// "*" so it also works before the email_template column exists (then version 1).
+const STORED_COLUMNS = "*";
 
 type StoredRow = {
   id: string;
@@ -13,6 +15,7 @@ type StoredRow = {
   created_at: string;
   payload_hash: string;
   visitor_email_status: NotificationStatus;
+  email_template?: number | null;
 };
 
 const toStored = (row: StoredRow): StoredQuote => ({
@@ -21,6 +24,7 @@ const toStored = (row: StoredRow): StoredQuote => ({
   createdAt: row.created_at,
   payloadHash: row.payload_hash,
   visitorEmailStatus: row.visitor_email_status,
+  emailTemplate: emailTemplateOf(row.email_template),
 });
 
 /** Maps normalized form data to table columns. */
