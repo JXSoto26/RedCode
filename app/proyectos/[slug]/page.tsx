@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PROJECTS, projectBySlug } from "@/lib/projects";
 import { isQuoteSubmissionEnabled } from "@/lib/quote/config";
+import { pageMetadata } from "@/lib/seo";
 import { quoteCtaHref, site } from "@/lib/site";
 
 type Params = { params: Promise<{ slug: string }> };
@@ -20,20 +21,15 @@ export const generateStaticParams = () => PROJECTS.map((p) => ({ slug: p.slug })
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const project = projectBySlug((await params).slug);
   if (!project) return {};
-  const title = `${project.title}: ${project.category.toLowerCase()}`;
-  const path = `/proyectos/${project.slug}`;
-  return {
-    title,
+  // Same title, description and screenshot as before; now also a large X card.
+  const { desktop } = project.images;
+  return pageMetadata({
+    title: `${project.title}: ${project.category.toLowerCase()}`,
     description: project.desc,
-    alternates: { canonical: path },
-    openGraph: {
-      type: "article",
-      title: `${title} · ${site.name}`,
-      description: project.desc,
-      url: path,
-      images: [{ url: project.images.desktop.src, width: project.images.desktop.width, height: project.images.desktop.height, alt: project.images.desktop.alt }],
-    },
-  };
+    path: `/proyectos/${project.slug}`,
+    type: "article",
+    image: { url: desktop.src, width: desktop.width, height: desktop.height, alt: desktop.alt },
+  });
 }
 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {

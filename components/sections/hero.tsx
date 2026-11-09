@@ -51,29 +51,28 @@ export function Hero({ quoteEnabled = false }: { quoteEnabled?: boolean }) {
             <Badge>Diseño web en {site.location}</Badge>
           </motion.div>
 
-          <motion.h1
-            data-reveal
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease, delay: 0.08 }}
-            className="mt-6 text-balance text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
+          {/*
+            The heading and intro are visible in the server HTML (no JavaScript
+            needed): they only rise into place with a CSS animation, never fade
+            in from transparent, so they are not painted late.
+          */}
+          <h1
+            className="hero-rise mt-6 text-balance text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
+            style={{ animationDelay: "80ms" }}
           >
             Una página web clara para{" "}
             <span className="text-gradient-brand">presentar tu negocio</span> y
             conectar con tus clientes
-          </motion.h1>
+          </h1>
 
-          <motion.p
-            data-reveal
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease, delay: 0.16 }}
-            className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted"
+          <p
+            className="hero-rise mt-6 max-w-xl text-pretty text-lg leading-relaxed text-muted"
+            style={{ animationDelay: "160ms" }}
           >
             En {site.name} diseñamos y desarrollamos páginas web
             modernas y adaptadas a celulares para pequeños negocios,
             profesionales independientes e iglesias en {site.location}.
-          </motion.p>
+          </p>
 
           <motion.div
             data-reveal

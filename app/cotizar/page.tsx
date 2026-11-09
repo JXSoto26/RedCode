@@ -5,13 +5,14 @@ import { Footer } from "@/components/footer";
 import { Badge } from "@/components/ui/badge";
 import { QuoteForm } from "@/components/quote/quote-form";
 import { isQuoteSubmissionEnabled, turnstileSiteKey } from "@/lib/quote/config";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Solicitar cotización",
   description:
     "Cuéntanos sobre tu negocio y tu proyecto para preparar una cotización de tu página web.",
-  alternates: { canonical: "/cotizar" },
-};
+  path: "/cotizar",
+});
 
 export default async function QuotePage() {
   // Read server configuration per request, not at build time.
