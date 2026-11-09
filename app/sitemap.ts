@@ -7,6 +7,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // Sitemap entries require absolute URLs; empty until the domain is set in lib/site.ts.
   if (!site.url) return [];
 
+  // No lastmod: Google uses it only when it is accurate, and there is no
+  // maintained per-page change date. Add it only with real dates.
+
   return [
     { url: site.url, changeFrequency: "monthly", priority: 1 },
     { url: `${site.url}/cotizar`, changeFrequency: "monthly", priority: 0.8 },

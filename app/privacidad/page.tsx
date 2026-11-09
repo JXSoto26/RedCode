@@ -12,12 +12,15 @@ import {
   privacyPolicyFinal,
 } from "@/lib/privacy";
 import { isQuoteSubmissionEnabled } from "@/lib/quote/config";
+import { pageMetadata } from "@/lib/seo";
 import { emailHref, site } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Política de privacidad",
-  description: `Cómo ${site.name} trata los datos enviados en el formulario de cotización.`,
-  alternates: { canonical: "/privacidad" },
+  ...pageMetadata({
+    title: "Política de privacidad",
+    description: `Cómo ${site.name} trata los datos enviados en el formulario de cotización.`,
+    path: "/privacidad",
+  }),
   // The draft is not indexed until the reviewed text is final.
   ...(!privacyPolicyFinal() && { robots: { index: false, follow: true } }),
 };

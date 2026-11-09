@@ -162,10 +162,72 @@
   }
 }
 
+/*
+ * Fallback for Geist while the web font loads (see app/layout.tsx), one face
+ * per weight range so bold text uses real Arial Bold. size-adjust is the
+ * measured width ratio Geist / Arial for the site's Spanish text; the metric
+ * overrides keep Geist's ascent (1.005 em) and descent (0.295 em).
+ */
+@font-face {
+  font-family: GeistMetricFallback;
+  src: local("Arial"), local("ArialMT");
+  font-weight: 100 449;
+  size-adjust: 101.5%;
+  ascent-override: 99.01%;
+  descent-override: 29.06%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: GeistMetricFallback;
+  src: local("Arial"), local("ArialMT");
+  font-weight: 450 549;
+  size-adjust: 104%;
+  ascent-override: 96.63%;
+  descent-override: 28.37%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: GeistMetricFallback;
+  src: local("Arial Bold"), local("Arial-BoldMT");
+  font-weight: 550 649;
+  size-adjust: 99.2%;
+  ascent-override: 101.31%;
+  descent-override: 29.74%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: GeistMetricFallback;
+  src: local("Arial Bold"), local("Arial-BoldMT");
+  font-weight: 650 900;
+  /* Checked: hero headings wrap the same as Geist at 320-1440 px. */
+  size-adjust: 101.5%;
+  ascent-override: 99.01%;
+  descent-override: 29.06%;
+  line-gap-override: 0%;
+}
+
 @keyframes marquee {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
 }
 .animate-marquee {
   animation: marquee 32s linear infinite;
+}
+
+/*
+ * Hero heading and intro: a short rise that runs from the server HTML, with no
+ * JavaScript. Only transform moves; the text is never transparent, so it is
+ * readable from the first paint.
+ */
+@keyframes hero-rise {
+  from { transform: translateY(24px); }
+  to { transform: none; }
+}
+.hero-rise {
+  animation: hero-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-rise {
+    animation: none;
+  }
 }

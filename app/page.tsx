@@ -8,12 +8,23 @@ import { Quote } from "@/components/sections/quote";
 import { Contact } from "@/components/sections/contact";
 import { Footer } from "@/components/footer";
 import { isQuoteSubmissionEnabled } from "@/lib/quote/config";
+import { brandJsonLd, DEFAULT_DESCRIPTION, HOME_TITLE, jsonLdScript, pageMetadata } from "@/lib/seo";
+
+export const metadata = pageMetadata({
+  title: { absolute: HOME_TITLE },
+  description: DEFAULT_DESCRIPTION,
+  path: "/",
+});
 
 export default function Home() {
   const quoteEnabled = isQuoteSubmissionEnabled();
+  const jsonLd = brandJsonLd();
 
   return (
     <>
+      {jsonLd && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }} />
+      )}
       <Navbar quoteEnabled={quoteEnabled} />
       <main>
         <Hero quoteEnabled={quoteEnabled} />
