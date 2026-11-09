@@ -20,6 +20,13 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  // Build from clean sources every time. With the build cache (on by default
+  // since Next.js 16.3 and restored by Vercel between deployments), Production
+  // served a stylesheet built from an earlier app/globals.css. Builds take a
+  // little longer; dev keeps its own cache.
+  experimental: {
+    turbopackFileSystemCacheForBuild: false,
+  },
   // Quote PDFs: load pdfmake (with pdfkit) and fontkit from node_modules at
   // runtime instead of bundling them.
   serverExternalPackages: ["pdfmake", "fontkit"],

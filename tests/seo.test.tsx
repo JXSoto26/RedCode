@@ -118,6 +118,13 @@ describe("share metadata", () => {
   });
 });
 
+describe("build", () => {
+  it("does not reuse the Turbopack build cache (a cached build shipped an outdated globals.css)", () => {
+    const config = readFileSync("next.config.ts", "utf8");
+    expect(config).toMatch(/experimental: \{\s*turbopackFileSystemCacheForBuild: false,/);
+  });
+});
+
 describe("cleanup and sitemap", () => {
   it("removed the unused template assets", () => {
     for (const f of ["file", "globe", "next", "vercel", "window"]) expect(existsSync(`public/${f}.svg`)).toBe(false);
